@@ -14,12 +14,15 @@ END $$;
 -- 2. Tabla de Inventario
 CREATE TABLE IF NOT EXISTS inventario (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    nombre TEXT NOT NULL,
+    nombre TEXT NOT NULL, -- Nombre completo (ej: Corona 355ml)
+    producto_base TEXT, -- Agrupador (ej: Cerveza Corona)
+    formato TEXT DEFAULT 'Pza', -- Presentación (ej: 355ml)
     categoria TEXT NOT NULL,
     cantidad_actual NUMERIC DEFAULT 0,
     cantidad_minima NUMERIC DEFAULT 0,
     unidad TEXT NOT NULL, -- Pzas, Kg, Litros, etc.
     precio_unitario NUMERIC DEFAULT 0,
+    piezas_por_unidad NUMERIC DEFAULT 1,
     proveedor TEXT,
     fecha_ultima_actualizacion TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     notas TEXT,

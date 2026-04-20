@@ -33,15 +33,19 @@ const InventoryPage = () => {
 
   const [formData, setFormData] = useState({
     nombre: '',
+    producto_base: '',
+    formato: 'Pza',
     categoria: 'Otros',
     cantidad_actual: 0,
     cantidad_minima: 0,
     unidad: 'Pzas',
-    precio_unitario: 0, // Este actuará como precio de la presentación completa
-    piezas_por_unidad: 1, // Multiplicador (ej: 6 para un Six)
+    precio_unitario: 0,
+    piezas_por_unidad: 1,
     proveedor: '',
     notas: ''
   });
+
+  const [expandedProducts, setExpandedProducts] = useState({});
 
   useEffect(() => {
     fetchInventory();
@@ -64,7 +68,8 @@ const InventoryPage = () => {
       const { data, error } = await supabase
         .from('inventario')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('producto_base', { ascending: true })
+        .order('formato', { ascending: true });
 
       if (error) throw error;
       setItems(data || []);
@@ -80,12 +85,16 @@ const InventoryPage = () => {
       setEditingItem(item);
       setFormData({ 
         ...item,
+        producto_base: item.producto_base || item.nombre,
+        formato: item.formato || 'Pza',
         piezas_por_unidad: item.piezas_por_unidad || 1
       });
     } else {
       setEditingItem(null);
       setFormData({
         nombre: '',
+        producto_base: '',
+        formato: 'Pza',
         categoria: 'Otros',
         cantidad_actual: 0,
         cantidad_minima: 0,
@@ -103,17 +112,23 @@ const InventoryPage = () => {
     e.preventDefault();
     const loadingToast = toast.loading('Guardando...');
     
+    // El nombre final para efectos de compatibilidad y visualización rápida es Base + Formato
+    const finalData = {
+      ...formData,
+      nombre: `${formData.producto_base} (${formData.formato})`
+    };
+
     try {
       if (editingItem) {
         const { error } = await supabase
           .from('inventario')
-          .update(formData)
+          .update(finalData)
           .eq('id', editingItem.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('inventario')
-          .insert([formData]);
+          .insert([finalData]);
         if (error) throw error;
       }
       toast.success('Insumo guardado correctamente', { id: loadingToast });
@@ -136,16 +151,44 @@ const InventoryPage = () => {
     }
   };
 
+  const toggleProduct = (baseName) => {
+    setExpandedProducts(prev => ({
+      ...prev,
+      [baseName]: !prev[baseName]
+    }));
+  };
+
   const filteredItems = items.filter(item => {
-    const matchesSearch = item.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         (item.proveedor && item.proveedor.toLowerCase().includes(searchTerm.toLowerCase()));
+    const searchString = `${item.producto_base} ${item.formato} ${item.nombre} ${item.proveedor}`.toLowerCase();
+    const matchesSearch = searchString.includes(searchTerm.toLowerCase());
     const matchesCategory = categoryFilter === 'Todas' || item.categoria === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
+  // Agrupación por Producto Base
+  const groupedProducts = filteredItems.reduce((acc, item) => {
+    const base = item.producto_base || item.nombre;
+    if (!acc[base]) {
+      acc[base] = {
+        name: base,
+        category: item.categoria,
+        totalStock: 0,
+        unit: item.unidad,
+        presentations: [],
+        hasAlert: false
+      };
+    }
+    acc[base].presentations.push(item);
+    acc[base].totalStock += Number(item.cantidad_actual);
+    if (item.cantidad_actual <= item.cantidad_minima) acc[base].hasAlert = true;
+    return acc;
+  }, {});
+
+  const productList = Object.values(groupedProducts);
+
   const handleDownloadLayout = () => {
-    const headers = ['nombre', 'categoria', 'unidad', 'cantidad_actual', 'cantidad_minima', 'precio_unitario', 'piezas_por_unidad', 'proveedor', 'notas'];
-    const sampleRow = ['Ejemplo Insumo', 'Cerveza', 'Pzas', '10', '5', '300.50', '6', 'Proveedor SA', 'Notas opcionales'];
+    const headers = ['producto_base', 'formato', 'categoria', 'unidad', 'cantidad_actual', 'cantidad_minima', 'precio_unitario', 'piezas_por_unidad', 'proveedor', 'notas'];
+    const sampleRow = ['Cerveza Corona', '355ml', 'Cerveza', 'Pzas', '10', '5', '300.50', '6', 'Modelo', 'Notas opcionales'];
     const csvContent = Papa.unparse([headers, sampleRow]);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -169,17 +212,23 @@ const InventoryPage = () => {
       skipEmptyLines: true,
       complete: async (results) => {
         try {
-          const transformedData = results.data.map(row => ({
-            nombre: row.nombre || '',
-            categoria: row.categoria || 'Otros',
-            unidad: row.unidad || 'Pzas',
-            cantidad_actual: Number(row.cantidad_actual) || 0,
-            cantidad_minima: Number(row.cantidad_minima) || 0,
-            precio_unitario: Number(row.precio_unitario) || 0,
-            piezas_por_unidad: Number(row.piezas_por_unidad) || 1,
-            proveedor: row.proveedor || '',
-            notas: row.notas || ''
-          }));
+          const transformedData = results.data.map(row => {
+            const base = row.producto_base || row.nombre || '';
+            const fmt = row.formato || 'Pza';
+            return {
+              producto_base: base,
+              formato: fmt,
+              nombre: `${base} (${fmt})`,
+              categoria: row.categoria || 'Otros',
+              unidad: row.unidad || 'Pzas',
+              cantidad_actual: Number(row.cantidad_actual) || 0,
+              cantidad_minima: Number(row.cantidad_minima) || 0,
+              precio_unitario: Number(row.precio_unitario) || 0,
+              piezas_por_unidad: Number(row.piezas_por_unidad) || 1,
+              proveedor: row.proveedor || '',
+              notas: row.notas || ''
+            };
+          });
 
           if (transformedData.length === 0) throw new Error('El archivo está vacío');
 
@@ -293,54 +342,97 @@ const InventoryPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.03]">
-                {filteredItems.map((item) => {
-                  const unitPrice = item.precio_unitario / (item.piezas_por_unidad || 1);
-                  return (
+                {productList.map((product) => (
+                  <React.Fragment key={product.name}>
+                    {/* Fila del Producto Base */}
                     <motion.tr 
-                      key={item.id} className="hover:bg-white/[0.02] transition-colors group"
+                      className="hover:bg-white/[0.04] transition-colors group cursor-pointer border-l-4 border-transparent hover:border-brand-red"
+                      onClick={() => toggleProduct(product.name)}
                     >
-                      <td className="px-6 py-4">
-                        <div className="font-black text-white text-sm uppercase tracking-tight group-hover:text-brand-red transition-colors">{item.nombre}</div>
-                        <div className="text-[10px] text-slate-500 font-bold flex items-center gap-1 uppercase">{item.proveedor || 'S/N'} • {item.unidad}</div>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg bg-white/5 transition-transform duration-300 ${expandedProducts[product.name] ? 'rotate-90' : ''}`}>
+                            <Plus size={14} className={expandedProducts[product.name] ? 'hidden' : 'block'} />
+                            <div className={expandedProducts[product.name] ? 'block' : 'hidden'} style={{width: 14, height: 2, background: 'currentColor'}} />
+                          </div>
+                          <div>
+                            <div className="font-black text-white text-base uppercase tracking-tight group-hover:text-brand-red transition-colors">{product.name}</div>
+                            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{product.presentations.length} Presentaciones disponibles</div>
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-5">
                         <span className="px-3 py-1.5 rounded-lg bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-400 border border-white/5">
-                          {item.categoria}
+                          {product.category}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className={`text-sm font-black italic tracking-tighter ${item.cantidad_actual <= item.cantidad_minima ? 'text-brand-red flex items-center gap-1.5' : 'text-slate-200'}`}>
-                          {item.cantidad_actual} <span className="opacity-50">{item.unidad}</span>
-                          {item.cantidad_actual <= item.cantidad_minima && <AlertTriangle size={14} className="animate-bounce" />}
+                      <td className="px-6 py-5">
+                        <div className={`text-sm font-black italic tracking-tighter ${product.hasAlert ? 'text-brand-red flex items-center gap-1.5' : 'text-emerald-400'}`}>
+                          {product.totalStock} <span className="opacity-50 lowercase">{product.unit}</span>
+                          {product.hasAlert && <AlertTriangle size={14} className="animate-bounce" />}
                         </div>
+                        <div className="text-[9px] text-slate-600 font-bold uppercase">Total Global</div>
                       </td>
-                      <td className="px-6 py-4 text-center">
-                         <div className="bg-white/5 py-1 px-2 rounded-lg inline-block border border-white/5 text-[11px] font-black text-slate-300">
-                           x {item.piezas_por_unidad || 1}
+                      <td className="px-6 py-5 text-center text-slate-500">—</td>
+                      <td className="px-6 py-5 text-slate-500 text-xs italic">Agrupado por producto</td>
+                      <td className="px-6 py-5 text-right">
+                         <div className="text-slate-600 group-hover:text-brand-red transition-colors font-black text-[10px] uppercase tracking-widest">
+                           {expandedProducts[product.name] ? 'Cerrar' : 'Ver Detalles'}
                          </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="space-y-1">
-                           <div className="text-xs font-black text-emerald-400">Total: ${item.precio_unitario?.toLocaleString()}</div>
-                           <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5">
-                             <Calculator size={10} /> 
-                             Unitario: <span className="text-white">${unitPrice.toFixed(2)}</span>
-                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => handleOpenModal(item)} className="p-2 hover:bg-emerald-500/10 rounded-lg text-emerald-400 hover:text-emerald-300">
-                            <Edit2 size={16} />
-                          </button>
-                          <button onClick={() => handleDelete(item.id)} className="p-2 hover:bg-brand-red/10 rounded-lg text-brand-red">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
                     </motion.tr>
-                  );
-                })}
+
+                    {/* Filas de Presentaciones (solo si está expandido) */}
+                    <AnimatePresence>
+                      {expandedProducts[product.name] && product.presentations.map((item) => {
+                        const unitPrice = item.precio_unitario / (item.piezas_por_unidad || 1);
+                        return (
+                          <motion.tr 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            key={item.id} 
+                            className="bg-white/[0.01] hover:bg-white/[0.03] transition-colors group/row border-l-4 border-brand-red/30"
+                          >
+                            <td className="px-6 py-4 pl-16">
+                              <div className="font-bold text-slate-200 text-sm italic">{item.formato || 'Estándar'}</div>
+                              <div className="text-[9px] text-slate-500 font-bold flex items-center gap-1 uppercase">
+                                {item.proveedor || 'S/N'} • PROD ID: {item.id.split('-')[0]}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4"></td>
+                            <td className="px-6 py-4">
+                              <div className={`text-sm font-black italic tracking-tighter ${item.cantidad_actual <= item.cantidad_minima ? 'text-brand-red' : 'text-slate-300'}`}>
+                                {item.cantidad_actual} <span className="opacity-40">{item.unidad}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                               <div className="bg-white/5 py-1 px-2 rounded-lg inline-block border border-white/5 text-[11px] font-black text-slate-400">
+                                 x {item.piezas_por_unidad || 1}
+                               </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="space-y-0.5">
+                                 <div className="text-xs font-black text-emerald-400/80">${item.precio_unitario?.toLocaleString()}</div>
+                                 <div className="text-[9px] font-bold text-slate-500">Unitario: ${unitPrice.toFixed(2)}</div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex justify-end gap-1">
+                                <button onClick={(e) => { e.stopPropagation(); handleOpenModal(item); }} className="p-2 hover:bg-emerald-500/10 rounded-lg text-emerald-400/60 hover:text-emerald-400">
+                                  <Edit2 size={14} />
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-2 hover:bg-brand-red/10 rounded-lg text-brand-red/60 hover:text-brand-red">
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </motion.tr>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </React.Fragment>
+                ))}
             </tbody>
           </table>
         </div>
@@ -366,12 +458,20 @@ const InventoryPage = () => {
                 <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Configuración técnica de stock y costos unitarios</p>
               </div>
 
-              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="md:col-span-2">
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Nombre del Insumo / Producto</label>
+               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="md:col-span-1">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Producto Principal (Base)</label>
                   <input 
-                    required type="text" className="input-field py-4 bg-white/5 border-white/10"
-                    value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})}
+                    required type="text" placeholder="Ej: Cerveza Corona" className="input-field py-4 bg-white/5 border-white/10"
+                    value={formData.producto_base} onChange={(e) => setFormData({...formData, producto_base: e.target.value})}
+                  />
+                </div>
+
+                <div className="md:col-span-1">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Presentación / Formato</label>
+                  <input 
+                    required type="text" placeholder="Ej: 355ml, Botella, 1L..." className="input-field py-4 bg-white/5 border-white/10"
+                    value={formData.formato} onChange={(e) => setFormData({...formData, formato: e.target.value})}
                   />
                 </div>
                 

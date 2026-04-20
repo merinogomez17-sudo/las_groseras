@@ -52,7 +52,7 @@ const RecipesPage = () => {
           *,
           receta_componentes (
             *,
-            inventario (nombre, precio_unitario, unidad, piezas_por_unidad)
+            inventario (nombre, precio_unitario, unidad, piezas_por_unidad, producto_base, formato)
           )
         `)
         .order('nombre');
@@ -286,7 +286,7 @@ const RecipesPage = () => {
               <div className="mt-4 flex flex-wrap gap-2">
                 {recipe.receta_componentes?.slice(0, 3).map((item, i) => (
                   <span key={i} className="text-[9px] font-bold text-slate-500 bg-white/5 py-1 px-2 rounded-md italic">
-                    {item.insumo_nombre_manual || item.inventario?.nombre}
+                    {item.insumo_nombre_manual || (item.inventario ? `${item.inventario.producto_base || item.inventario.nombre} (${item.inventario.formato || 'Estándar'})` : 'Insumo desconocido')}
                   </span>
                 ))}
                 {recipe.receta_componentes?.length > 3 && (
@@ -337,7 +337,7 @@ const RecipesPage = () => {
                         {idx + 1}
                       </div>
                       <div>
-                        <div className="font-black text-sm uppercase text-white">{item.insumo_nombre_manual || item.inventario?.nombre}</div>
+                        <div className="font-black text-sm uppercase text-white">{item.insumo_nombre_manual || (item.inventario ? `${item.inventario.producto_base || item.inventario.nombre} (${item.inventario.formato || 'Estándar'})` : 'Insumo desconocido')}</div>
                         <div className="text-[10px] text-slate-500 font-bold uppercase">
                           {item.cantidad} {item.unidad}
                         </div>
@@ -444,7 +444,9 @@ const RecipesPage = () => {
                             >
                               <option value="">Seleccionar Insumo...</option>
                               {inventory.map(i => (
-                                <option key={i.id} value={i.id}>{i.nombre} (${i.precio_unitario})</option>
+                                <option key={i.id} value={i.id}>
+                                  {(i.producto_base || i.nombre)} {i.formato ? `(${i.formato})` : ''} — ${i.precio_unitario}
+                                </option>
                               ))}
                             </select>
                           </div>
