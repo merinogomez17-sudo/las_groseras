@@ -207,34 +207,34 @@ const InventoryPage = () => {
   return (
     <div className="space-y-6">
       {/* HEADER */}
-      <div className="flex justify-between items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md gap-6">
         <div>
-          <h1 className="text-3xl font-black text-white italic tracking-tighter flex items-center gap-3">
-             <Layers className="text-brand-red animate-pulse" size={32} />
+          <h1 className="text-2xl sm:text-3xl font-black text-white italic tracking-tighter flex items-center gap-3">
+             <Layers className="text-brand-red animate-pulse shrink-0" size={32} />
              INVENTARIO & COSTOS
           </h1>
           <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Gestión de Stock y Escandallos • Las Groseras</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4 w-full lg:w-auto">
           <button className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 transition-all" onClick={fetchInventory}>
             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
           </button>
-          <button className="btn-primary shadow-xl shadow-brand-red/40 px-8 group" onClick={() => handleOpenModal()}>
+          <button className="btn-primary shadow-xl shadow-brand-red/40 px-6 py-3 group flex-1 sm:flex-none justify-center" onClick={() => handleOpenModal()}>
             <Plus size={20} className="stroke-[3px]" />
             <span className="font-black italic">NUEVO INSUMO</span>
           </button>
           <button 
-            className="flex items-center gap-2 px-6 py-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl hover:bg-emerald-500/20 transition-all font-black italic shadow-xl shadow-emerald-500/10"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl hover:bg-emerald-500/20 transition-all font-black italic shadow-xl shadow-emerald-500/10 flex-1 sm:flex-none text-xs"
             onClick={() => setIsBulkModalOpen(true)}
           >
-            <Download size={20} className="rotate-180" />
+            <Download size={18} className="rotate-180" />
             CARGA MASIVA
           </button>
         </div>
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {[
           { label: 'Variedad de Insumos', value: items.length, icon: Package, color: 'text-blue-400', bg: 'bg-blue-500/10' },
           { label: 'Alerta de Reabastecimiento', value: lowStockCount, icon: AlertTriangle, color: 'text-brand-red', bg: 'bg-brand-red/10 animate-pulse' },
@@ -260,7 +260,7 @@ const InventoryPage = () => {
 
       {/* FILTERS */}
       <div className="glass p-4 flex flex-col md:flex-row gap-4 items-center justify-between border-white/5">
-        <div className="relative w-full md:w-96 group">
+        <div className="relative w-full lg:w-96 group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-red transition-colors" size={18} />
           <input 
             type="text" placeholder="Buscar por nombre o proveedor..." className="input-field pl-12 bg-white/5 focus:bg-white/10"

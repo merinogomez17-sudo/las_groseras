@@ -74,7 +74,7 @@ function App() {
           isPublicRoute 
             ? 'p-0 ml-0' 
             : isMobile 
-              ? 'p-8 pt-24 ml-0' 
+              ? 'p-4 pt-24 ml-0' 
               : isCollapsed 
                 ? 'p-8 ml-20' 
                 : 'p-8 ml-64'

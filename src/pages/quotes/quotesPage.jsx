@@ -247,16 +247,16 @@ const QuotesPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md gap-6">
         <div>
-          <h1 className="text-3xl font-black text-white italic tracking-tighter flex items-center gap-3">
-            <FileText className="text-brand-red" size={32} />
+          <h1 className="text-2xl sm:text-3xl font-black text-white italic tracking-tighter flex items-center gap-3">
+            <FileText className="text-brand-red shrink-0" size={32} />
             COTIZACIONES
           </h1>
           <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Generador de Presupuestos • Las Groseras</p>
         </div>
         <button 
-          className="btn-primary shadow-xl shadow-brand-red/40 px-8 py-3 group" 
+          className="btn-primary shadow-xl shadow-brand-red/40 px-8 py-3 group w-full sm:w-auto" 
           onClick={() => {
             setFormData({
               lead_id: '',

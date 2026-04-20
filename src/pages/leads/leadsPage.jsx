@@ -195,27 +195,27 @@ const LeadsPage = () => {
   return (
     <div className="space-y-6">
       {/* HEADER SECTION */}
-      <div className="flex justify-between items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md gap-6">
         <div>
-          <h1 className="text-3xl font-black text-white italic tracking-tighter flex items-center gap-3">
-            <Target className="text-brand-red animate-pulse" size={32} />
+          <h1 className="text-2xl sm:text-3xl font-black text-white italic tracking-tighter flex items-center gap-3">
+            <Target className="text-brand-red animate-pulse shrink-0" size={32} />
             GESTIÓN DE LEADS
           </h1>
           <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Pipeline de Ventas • Las Groseras CRM</p>
         </div>
-        <div className="flex gap-4">
-          <div className="relative group">
+        <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+          <div className="relative group w-full lg:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-red transition-colors" size={18} />
             <input 
               type="text" 
               placeholder="Buscar por nombre, tel..." 
-              className="input-field pl-10 w-72 border-white/5 bg-white/5 focus:bg-white/10"
+              className="input-field pl-10 w-full border-white/5 bg-white/5 focus:bg-white/10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <button 
-            className="btn-primary shadow-xl shadow-brand-red/40 px-8 group overflow-hidden relative" 
+            className="btn-primary shadow-xl shadow-brand-red/40 px-8 py-3 group overflow-hidden relative w-full lg:w-auto flex justify-center" 
             onClick={() => handleOpenModal()}
           >
             <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500 italic"></div>

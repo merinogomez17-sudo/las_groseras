@@ -113,23 +113,23 @@ const CustomersPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <Users className="text-brand-red" size={32} />
-            Clientes
+          <h1 className="text-2xl sm:text-3xl font-black text-white italic tracking-tighter flex items-center gap-3 uppercase">
+            <Users className="text-brand-red shrink-0" size={32} />
+            CLIENTES
           </h1>
-          <p className="text-slate-400 mt-1">Base de datos de clientes particulares y empresas.</p>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Base de datos de clientes particulares y empresas.</p>
         </div>
-        <button className="btn-primary" onClick={() => handleOpenModal()}>
-          <Plus size={20} />
-          Nuevo Cliente
+        <button className="btn-primary shadow-xl shadow-brand-red/40 px-8 py-3 group w-full sm:w-auto flex justify-center" onClick={() => handleOpenModal()}>
+          <Plus size={20} className="stroke-[3px]" />
+          <span className="font-black italic">NUEVO CLIENTE</span>
         </button>
       </div>
 
       {/* Quick Search */}
       <div className="glass p-4">
-        <div className="relative max-w-xl">
+        <div className="relative w-full max-w-xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
           <input 
             type="text" 

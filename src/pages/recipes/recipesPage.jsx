@@ -198,21 +198,21 @@ const RecipesPage = () => {
   return (
     <div className="space-y-6">
       {/* HEADER */}
-      <div className="flex justify-between items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md gap-6">
         <div>
-          <h1 className="text-3xl font-black text-white italic tracking-tighter flex items-center gap-3 uppercase">
-             <BookOpen className="text-brand-red animate-pulse" size={32} />
+          <h1 className="text-2xl sm:text-3xl font-black text-white italic tracking-tighter flex items-center gap-3 uppercase">
+             <BookOpen className="text-brand-red animate-pulse shrink-0" size={32} />
              ESCANDALLOS & RECETAS
           </h1>
           <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Costeo de Productos Elaborados • Las Groseras</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-4 w-full sm:w-auto">
           <button className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 transition-all" onClick={fetchRecipes}>
             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
           </button>
           <button 
             onClick={() => openEditor()}
-            className="btn-primary shadow-xl shadow-brand-red/40 px-8 group"
+            className="btn-primary shadow-xl shadow-brand-red/40 px-8 py-3 group flex-1 sm:flex-none justify-center"
           >
             <Plus size={20} className="stroke-[3px]" />
             <span className="font-black italic">NUEVA RECETA</span>
@@ -241,7 +241,7 @@ const RecipesPage = () => {
       </div>
 
       {/* GRID RECETAS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {filteredRecipes.map((recipe) => (
           <motion.div 
             layout

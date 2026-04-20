@@ -265,15 +265,15 @@ const EventsPage = () => {
   return (
     <div className="space-y-6">
       {/* HEADER */}
-      <div className="flex justify-between items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md gap-6">
         <div>
-          <h1 className="text-3xl font-black text-white italic tracking-tighter flex items-center gap-3 uppercase">
-             <Calendar className="text-brand-red" size={32} />
+          <h1 className="text-2xl sm:text-3xl font-black text-white italic tracking-tighter flex items-center gap-3 uppercase">
+             <Calendar className="text-brand-red shrink-0" size={32} />
              PEDIDOS CONFIRMADOS
           </h1>
           <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Gestión Logística y Despacho • Las Groseras</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-4 w-full sm:w-auto">
           <button className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 transition-all" onClick={fetchEvents}>
             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
           </button>
