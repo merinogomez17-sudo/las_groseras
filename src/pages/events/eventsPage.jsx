@@ -21,10 +21,14 @@ const EventsPage = () => {
   // States for recipe selection
   const [availableRecipes, setAvailableRecipes] = useState([]);
   const [selectedRecipes, setSelectedRecipes] = useState([]);
+  
+  const [availableBeers, setAvailableBeers] = useState([]);
+  const [selectedBeers, setSelectedBeers] = useState([]);
 
   useEffect(() => {
     fetchEvents();
     fetchRecipes();
+    fetchBeers();
   }, []);
 
   const fetchEvents = async () => {
@@ -54,6 +58,15 @@ const EventsPage = () => {
     setAvailableRecipes(data || []);
   };
 
+  const fetchBeers = async () => {
+    const { data } = await supabase
+      .from('inventario')
+      .select('id, nombre')
+      .in('categoria', ['Cerveza', 'Cervezas'])
+      .order('nombre');
+    setAvailableBeers(data || []);
+  };
+
   const handleShareLink = (eventId) => {
     const shareUrl = `${window.location.origin}/selection/${eventId}`;
     navigator.clipboard.writeText(shareUrl);
@@ -71,7 +84,16 @@ const EventsPage = () => {
     const initialSelection = Array.from(new Set([...basics, ...existing]));
     
     setSelectedRecipes(initialSelection);
+    setSelectedBeers(event.cervezas_seleccionadas || []);
     setIsSelectionModalOpen(true);
+  };
+
+  const handleToggleBeer = (beerName) => {
+    if (selectedBeers.includes(beerName)) {
+      setSelectedBeers(selectedBeers.filter(b => b !== beerName));
+    } else {
+      setSelectedBeers([...selectedBeers, beerName]);
+    }
   };
 
   const handleToggleRecipe = (id, category) => {
@@ -117,7 +139,15 @@ const EventsPage = () => {
       const { error } = await supabase.from('evento_productos').insert(payload);
       if (error) throw error;
 
-      toast.success('Sabores actualizados', { id: loadingToast });
+      // 3. Actualizar cervezas seleccionadas
+      const { error: eventError } = await supabase
+        .from('eventos')
+        .update({ cervezas_seleccionadas: selectedBeers })
+        .eq('id', selectedEvent.id);
+      
+      if (eventError) throw eventError;
+
+      toast.success('Sabores y cervezas actualizados', { id: loadingToast });
       setIsSelectionModalOpen(false);
       fetchEvents();
     } catch (err) {
@@ -335,9 +365,25 @@ const EventsPage = () => {
                           </span>
                         ))
                       ) : (
-                        <p className="text-[10px] text-slate-600 font-bold italic">No se han seleccionado sabores para este evento.</p>
+                        <p className="text-[10px] text-slate-600 font-bold italic">No se han seleccionado sabores.</p>
                       )}
                    </div>
+
+                   {/* Display Selected Beers */}
+                   {event.cervezas_seleccionadas?.length > 0 && (
+                     <div className="mt-4 pt-4 border-t border-white/5">
+                       <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                         <Beer size={14} className="text-brand-red" /> Cerveza Base
+                       </h4>
+                       <div className="flex flex-wrap gap-2">
+                         {event.cervezas_seleccionadas.map((beer, idx) => (
+                           <span key={idx} className="px-3 py-1.5 bg-brand-red/10 rounded-xl border border-brand-red/20 text-[10px] font-black text-brand-red italic">
+                             {beer}
+                           </span>
+                         ))}
+                       </div>
+                     </div>
+                   )}
                 </div>
               </div>
 
@@ -405,6 +451,34 @@ const EventsPage = () => {
               </div>
 
               <div className="flex-1 overflow-y-auto pr-4 space-y-8 custom-scrollbar">
+                {/* Beer Selection Section in Modal */}
+                <div className="mb-12">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-[10px] font-black text-brand-red uppercase tracking-[0.3em] flex items-center gap-2">
+                       <Beer size={14} /> Cerveza Base
+                    </h3>
+                    <span className="text-[10px] font-black px-2 py-1 rounded bg-brand-red/10 text-brand-red">
+                      {selectedBeers.length} Seleccionadas
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {availableBeers.map(beer => (
+                      <button 
+                        key={beer.id}
+                        onClick={() => handleToggleBeer(beer.nombre)}
+                        className={`p-4 rounded-2xl border transition-all text-left group relative ${selectedBeers.includes(beer.nombre) ? 'bg-brand-red border-brand-red shadow-lg shadow-brand-red/20' : 'bg-white/5 border-white/5 hover:border-brand-red/30'}`}
+                      >
+                        <div className={`font-black text-xs uppercase italic tracking-tight ${selectedBeers.includes(beer.nombre) ? 'text-white' : 'text-slate-200'}`}>
+                          {beer.nombre}
+                        </div>
+                        {selectedBeers.includes(beer.nombre) && (
+                          <CheckCircle size={16} className="absolute top-2 right-2 text-white" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {Object.keys(CATEGORY_LABELS).map(cat => {
                   const pkgRaw = selectedEvent.paquete_contratado || selectedEvent.cotizaciones?.paquetes_incluidos?.[0]?.id || '';
                   const pkgKey = normalizePkgId(pkgRaw);
