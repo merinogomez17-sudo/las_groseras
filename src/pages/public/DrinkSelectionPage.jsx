@@ -287,7 +287,7 @@ const DrinkSelectionPage = () => {
                       {beer.nombre}
                     </div>
                     <div className={`text-[9px] font-bold uppercase tracking-widest ${selectedBeers.includes(beer.nombre) ? 'text-white/60' : 'text-slate-500'}`}>
-                      Pincha para seleccionar
+                      SABOR DISPONIBLE
                     </div>
                   </div>
                   
@@ -349,7 +349,7 @@ const DrinkSelectionPage = () => {
                          </div>
                          {cat !== 'Basica' && (
                            <div className={`text-[9px] font-bold uppercase tracking-widest ${selectedRecipes.includes(recipe.id) ? 'text-white/60' : 'text-slate-500'}`}>
-                              Pincha para seleccionar
+                              SABOR DISPONIBLE
                            </div>
                          )}
                        </div>
