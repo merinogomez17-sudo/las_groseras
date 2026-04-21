@@ -77,10 +77,23 @@ const DrinkSelectionPage = () => {
   const fetchBeers = async () => {
     const { data } = await supabase
       .from('inventario')
-      .select('id, nombre')
+      .select('id, nombre, producto_base')
       .in('categoria', ['Cerveza', 'Cervezas'])
       .order('nombre');
-    setAvailableBeers(data || []);
+
+    const rawBeers = data || [];
+    const uniqueBeers = [];
+    const seenNames = new Set();
+    
+    rawBeers.forEach(beer => {
+      const name = beer.producto_base || beer.nombre;
+      if (!seenNames.has(name)) {
+        uniqueBeers.push({ ...beer, displayName: name });
+        seenNames.add(name);
+      }
+    });
+
+    setAvailableBeers(uniqueBeers);
   };
 
   const handleToggleBeer = (beerName) => {
@@ -279,19 +292,19 @@ const DrinkSelectionPage = () => {
               {availableBeers.map(beer => (
                 <button 
                   key={beer.id}
-                  onClick={() => handleToggleBeer(beer.nombre)}
-                  className={`group relative p-6 rounded-3xl border transition-all text-left ${selectedBeers.includes(beer.nombre) ? 'bg-brand-red border-brand-red shadow-xl shadow-brand-red/30' : 'bg-white/5 border-white/5 hover:border-white/20'}`}
+                  onClick={() => handleToggleBeer(beer.displayName)}
+                  className={`group relative p-6 rounded-3xl border transition-all text-left ${selectedBeers.includes(beer.displayName) ? 'bg-brand-red border-brand-red shadow-xl shadow-brand-red/30' : 'bg-white/5 border-white/5 hover:border-white/20'}`}
                 >
                   <div className="flex flex-col gap-1">
-                    <div className={`text-sm font-black uppercase italic tracking-tighter ${selectedBeers.includes(beer.nombre) ? 'text-white' : 'text-slate-200'}`}>
-                      {beer.nombre}
+                    <div className={`text-sm font-black uppercase italic tracking-tighter ${selectedBeers.includes(beer.displayName) ? 'text-white' : 'text-slate-200'}`}>
+                      {beer.displayName}
                     </div>
                     <div className={`text-[9px] font-bold uppercase tracking-widest ${selectedBeers.includes(beer.nombre) ? 'text-white/60' : 'text-slate-500'}`}>
                       SABOR DISPONIBLE
                     </div>
                   </div>
                   
-                  {selectedBeers.includes(beer.nombre) && (
+                  {selectedBeers.includes(beer.displayName) && (
                     <div className="absolute top-4 right-4 text-white">
                       <CheckCircle size={20} />
                     </div>
