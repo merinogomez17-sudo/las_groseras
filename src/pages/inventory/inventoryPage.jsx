@@ -158,6 +158,24 @@ const InventoryPage = () => {
     }));
   };
 
+  // Nombres de base únicos para sugerencias
+  const baseProductNames = Array.from(new Set(items.map(i => i.producto_base || i.nombre))).sort();
+
+  const handleBaseNameChange = (val) => {
+    const existing = items.find(i => (i.producto_base || i.nombre) === val);
+    if (existing) {
+      setFormData(prev => ({
+        ...prev,
+        producto_base: val,
+        categoria: existing.categoria,
+        proveedor: existing.proveedor || prev.proveedor,
+        unidad: existing.unidad || prev.unidad
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, producto_base: val }));
+    }
+  };
+
   const filteredItems = items.filter(item => {
     const searchString = `${item.producto_base} ${item.formato} ${item.nombre} ${item.proveedor}`.toLowerCase();
     const matchesSearch = searchString.includes(searchTerm.toLowerCase());
@@ -462,8 +480,8 @@ const InventoryPage = () => {
                 <div className="md:col-span-1">
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Producto Principal (Base)</label>
                   <input 
-                    required type="text" placeholder="Ej: Cerveza Corona" className="input-field py-4 bg-white/5 border-white/10"
-                    value={formData.producto_base} onChange={(e) => setFormData({...formData, producto_base: e.target.value})}
+                    required type="text" list="base-product-list" placeholder="Ej: Cerveza Corona" className="input-field py-4 bg-white/5 border-white/10"
+                    value={formData.producto_base} onChange={(e) => handleBaseNameChange(e.target.value)}
                   />
                 </div>
 
@@ -546,6 +564,12 @@ const InventoryPage = () => {
                   </button>
                 </div>
               </form>
+
+              <datalist id="base-product-list">
+                {baseProductNames.map(name => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
             </motion.div>
           </div>
         )}
