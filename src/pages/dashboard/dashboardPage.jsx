@@ -23,14 +23,12 @@ const DashboardPage = () => {
       const [leadsRes, customersRes, inventoryRes, quotesRes] = await Promise.all([
         supabase.from('leads').select('*', { count: 'exact', head: true }),
         supabase.from('clientes').select('*', { count: 'exact', head: true }),
-        supabase.from('inventario').select('*').lt('cantidad_actual', supabase.rpc('get_min_stock', {}, { count: 'exact' })), // Simplified for now
+        supabase.from('inventario').select('*').lt('cantidad_actual', supabase.rpc('get_min_stock', {}, { count: 'exact' })),
         supabase.from('cotizaciones').select('total')
       ]);
 
-      // Count low stock manually for now
       const { data: invData } = await supabase.from('inventario').select('nombre, cantidad_actual, cantidad_minima');
       const lowStock = invData?.filter(i => i.cantidad_actual <= i.cantidad_minima).length || 0;
-      
       const totalQuotesAmount = quotesRes.data?.reduce((acc, curr) => acc + (curr.total || 0), 0) || 0;
 
       setStats({
@@ -48,79 +46,128 @@ const DashboardPage = () => {
   };
 
   const statCards = [
-    { label: 'Leads Totales', value: stats.leads, icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-    { label: 'Clientes Registrados', value: stats.customers, icon: ArrowUpRight, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-    { label: 'Valor en Cotizaciones', value: `$${stats.quotesValue.toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-    { label: 'Alertas de Stock', value: stats.inventoryAlerts, icon: Package, color: 'text-rose-400', bg: 'bg-rose-500/10' },
+    {
+      label: 'Leads Totales', value: stats.leads, icon: Users,
+      accent: '#40b3ac', bg: 'rgba(64,179,172,0.1)', border: 'rgba(64,179,172,0.2)'
+    },
+    {
+      label: 'Clientes Registrados', value: stats.customers, icon: ArrowUpRight,
+      accent: '#fecc30', bg: 'rgba(254,204,48,0.1)', border: 'rgba(254,204,48,0.2)'
+    },
+    {
+      label: 'Valor en Cotizaciones', value: `$${stats.quotesValue.toLocaleString()}`, icon: TrendingUp,
+      accent: '#40b3ac', bg: 'rgba(64,179,172,0.1)', border: 'rgba(64,179,172,0.2)'
+    },
+    {
+      label: 'Alertas de Stock', value: stats.inventoryAlerts, icon: Package,
+      accent: '#fecc30', bg: 'rgba(254,204,48,0.1)', border: 'rgba(254,204,48,0.2)'
+    },
   ];
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <LayoutDashboard className="text-brand-red" size={32} />
+          <h1 className="lobster text-3xl flex items-center gap-3" style={{ color: '#f7ebd7' }}>
+            <LayoutDashboard style={{ color: '#fecc30' }} size={30} />
             Control de Misión
           </h1>
-          <p className="text-slate-400 mt-1">Resumen operativo de Las Groseras.</p>
+          <p className="mt-1 font-sans text-sm" style={{ color: 'rgba(247,235,215,0.45)' }}>
+            Resumen operativo de Las Groseras.
+          </p>
         </div>
-        <div className="text-xs text-slate-500 flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+        <div className="text-xs flex items-center gap-2 px-3 py-1.5 rounded-full font-sans"
+          style={{ background: 'rgba(247,235,215,0.05)', border: '1px solid rgba(247,235,215,0.08)', color: 'rgba(247,235,215,0.35)' }}>
           <Clock size={12} />
-          Última actualización: {new Date().toLocaleTimeString()}
+          {new Date().toLocaleTimeString()}
         </div>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {statCards.map((item, i) => (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            key={i} 
-            className="glass p-6 glass-hover relative overflow-hidden group"
+            transition={{ delay: i * 0.08 }}
+            key={i}
+            className="relative overflow-hidden p-6 rounded-2xl group cursor-default"
+            style={{
+              background: 'rgba(247,235,215,0.04)',
+              border: `1px solid ${item.border}`,
+              backdropFilter: 'blur(12px)',
+              transition: 'all 0.3s',
+            }}
+            whileHover={{ scale: 1.02, background: 'rgba(247,235,215,0.07)' }}
           >
-            <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-5 group-hover:opacity-10 transition-opacity ${item.bg}`} />
-            <div className="flex justify-between items-start mb-4 relative z-10">
-              <div className={`p-2 rounded-lg ${item.bg} ${item.color}`}>
+            {/* Background glow */}
+            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full blur-2xl opacity-20 transition-opacity group-hover:opacity-40"
+              style={{ background: item.accent }} />
+
+            <div className="relative z-10">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
+                style={{ background: item.bg, color: item.accent }}>
                 <item.icon size={20} />
               </div>
+              <p className="text-xs font-semibold tracking-widest font-sans mb-1"
+                style={{ color: 'rgba(247,235,215,0.45)' }}>
+                {item.label}
+              </p>
+              <h3 className="text-3xl tracking-tight" style={{ color: '#f7ebd7' }}>
+                {item.value}
+              </h3>
             </div>
-            <p className="text-slate-400 text-sm font-medium relative z-10">{item.label}</p>
-            <h3 className="text-2xl font-black mt-1 text-white relative z-10 tracking-tight">{item.value}</h3>
           </motion.div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 glass p-8 relative overflow-hidden">
+      {/* Bottom Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Upcoming Events */}
+        <div className="lg:col-span-2 glass p-7 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-brand-teal/50 to-transparent" />
           <div className="flex justify-between items-center mb-6">
             <h2 className="card-title">Próximos Eventos</h2>
-            <button className="text-xs font-bold text-brand-red hover:underline">Ver calendario</button>
+            <button className="text-xs font-bold font-sans hover:underline" style={{ color: '#40b3ac' }}>
+              Ver calendario
+            </button>
           </div>
-          <div className="flex flex-col items-center justify-center py-20 text-slate-500 space-y-4">
-             <Calendar size={48} className="opacity-10" />
-             <p className="italic text-sm">No hay eventos confirmados para esta semana.</p>
-             <button className="btn-secondary py-1 text-xs">Agendar nuevo</button>
+          <div className="flex flex-col items-center justify-center py-16 space-y-4" style={{ color: 'rgba(247,235,215,0.2)' }}>
+            <Calendar size={44} />
+            <p className="text-sm font-sans" style={{ color: 'rgba(247,235,215,0.3)' }}>
+              No hay eventos confirmados para esta semana.
+            </p>
+            <button className="btn-secondary py-1.5 text-xs">Agendar nuevo</button>
           </div>
         </div>
 
-        <div className="glass p-8 space-y-6">
-          <h2 className="card-title text-rose-500">
-             Stock Crítico
+        {/* Stock Alert */}
+        <div className="glass p-7 space-y-5">
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-brand-yellow/50 to-transparent" />
+          <h2 className="card-title" style={{ color: '#fecc30' }}>
+            Stock Crítico
           </h2>
-          <div className="space-y-4">
-             {stats.inventoryAlerts > 0 ? (
-               <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-center space-y-2">
-                 <AlertCircle size={24} className="text-rose-500 mx-auto" />
-                 <p className="text-sm text-slate-300">Hay <span className="text-rose-500 font-bold">{stats.inventoryAlerts}</span> insumos por debajo del mínimo.</p>
-                 <button className="btn-primary w-full py-2 text-xs mt-2">Corregir Inventario</button>
-               </div>
-             ) : (
-               <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-                 <p className="text-sm text-emerald-400 font-bold">Todo en orden!</p>
-                 <p className="text-[10px] text-slate-500 mt-1">Niveles de stock estables.</p>
-               </div>
-             )}
+          <div>
+            {stats.inventoryAlerts > 0 ? (
+              <div className="p-5 rounded-2xl text-center space-y-3"
+                style={{ background: 'rgba(254,204,48,0.08)', border: '1px solid rgba(254,204,48,0.2)' }}>
+                <AlertCircle size={28} className="mx-auto" style={{ color: '#fecc30' }} />
+                <p className="text-sm font-sans" style={{ color: 'rgba(247,235,215,0.7)' }}>
+                  Hay <span className="font-bold" style={{ color: '#fecc30' }}>{stats.inventoryAlerts}</span> insumos
+                  por debajo del mínimo.
+                </p>
+                <button className="btn-primary w-full py-2 text-xs mt-2">Corregir Inventario</button>
+              </div>
+            ) : (
+              <div className="p-5 rounded-2xl text-center"
+                style={{ background: 'rgba(64,179,172,0.08)', border: '1px solid rgba(64,179,172,0.2)' }}>
+                <p className="text-sm font-bold font-sans" style={{ color: '#40b3ac' }}>¡Todo en orden!</p>
+                <p className="text-[11px] mt-1 font-sans" style={{ color: 'rgba(247,235,215,0.3)' }}>
+                  Niveles de stock estables.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

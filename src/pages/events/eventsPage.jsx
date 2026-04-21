@@ -302,11 +302,11 @@ const EventsPage = () => {
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md gap-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white italic tracking-tighter flex items-center gap-3 uppercase">
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tighter flex items-center gap-3">
              <Calendar className="text-brand-red shrink-0" size={32} />
-             PEDIDOS CONFIRMADOS
+             Pedidos confirmados
           </h1>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Gestión Logística y Despacho • Las Groseras</p>
+          <p className="text-slate-500 text-xs font-bold tracking-[0.2em] mt-1">Gestión Logística y Despacho • Las Groseras</p>
         </div>
         <div className="flex gap-4 w-full sm:w-auto">
           <button className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 transition-all" onClick={fetchEvents}>
@@ -329,12 +329,12 @@ const EventsPage = () => {
       {/* EVENTS LIST */}
       <div className="grid grid-cols-1 gap-6">
         {loading ? (
-          <div className="p-20 text-center text-slate-500 italic flex flex-col items-center">
+          <div className="p-20 text-center text-slate-500 flex flex-col items-center">
             <RefreshCw className="animate-spin mb-4 opacity-20" size={48} />
             Cargando gestión logística...
           </div>
         ) : filteredEvents.length === 0 ? (
-          <div className="glass p-20 text-center text-slate-500 italic">No hay pedidos confirmados pendientes.</div>
+          <div className="glass p-20 text-center text-slate-500">No hay pedidos confirmados pendientes.</div>
         ) : filteredEvents.map((event) => (
           <motion.div 
             layout
@@ -345,16 +345,16 @@ const EventsPage = () => {
             <div className="flex flex-col lg:flex-row justify-between gap-8 h-full">
               <div className="flex-1 space-y-4">
                 <div className="flex items-center gap-2">
-                  <span className={`px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest ${event.estado === 'finalizado' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-brand-red/10 text-brand-red'}`}>
+                  <span className={`px-3 py-1 rounded text-[10px] font-black tracking-widest ${event.estado === 'finalizado' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-brand-red/10 text-brand-red'}`}>
                     {event.estado}
                   </span>
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-1 rounded">
+                  <span className="text-[10px] font-black text-slate-500 tracking-widest bg-white/5 px-2 py-1 rounded">
                     {event.cotizaciones?.numero_cotizacion || 'S/N'}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-4 group/title">
-                   <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase group-hover/title:text-brand-red transition-colors">{event.nombre_evento}</h3>
+                   <h3 className="text-3xl font-black text-white tracking-tighter group-hover/title:text-brand-red transition-colors">{event.nombre_evento}</h3>
                    <div className="flex gap-2">
                     <button 
                       onClick={() => handleShareLink(event.id)}
@@ -374,45 +374,45 @@ const EventsPage = () => {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-6 mt-2">
-                  <div className="flex items-center gap-2 text-slate-400 font-bold text-xs uppercase">
+                  <div className="flex items-center gap-2 text-slate-400 font-bold text-xs">
                     <Users size={14} className="text-brand-red" /> {event.clientes?.nombre_completo || 'Cliente'}
                   </div>
-                  <div className="flex items-center gap-2 text-slate-400 font-bold text-xs uppercase">
+                  <div className="flex items-center gap-2 text-slate-400 font-bold text-xs">
                     <Users size={14} className="text-brand-red" /> {event.numero_personas} PAX
                   </div>
-                  <div className="flex items-center gap-2 text-slate-400 font-bold text-xs uppercase">
+                  <div className="flex items-center gap-2 text-slate-400 font-bold text-xs">
                     <MapPin size={14} className="text-brand-red" /> {event.ubicacion || 'Por definir'}
                   </div>
-                  <div className="flex items-center gap-2 text-slate-400 font-bold text-xs uppercase">
+                  <div className="flex items-center gap-2 text-slate-400 font-bold text-xs">
                     <ShoppingBag size={14} className="text-brand-red" /> {event.paquete_contratado || 'Personalizado'}
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-white/5">
-                   <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                   <h4 className="text-[10px] font-black text-slate-500 tracking-widest mb-3 flex items-center gap-2">
                      <Beer size={14} /> Bebidas Seleccionadas
                    </h4>
                    <div className="flex flex-wrap gap-2">
                       {event.evento_productos?.length > 0 ? (
                         event.evento_productos.map(p => (
-                          <span key={p.id} className="px-3 py-1.5 bg-white/5 rounded-xl border border-white/5 text-[10px] font-black text-slate-300 italic">
+                          <span key={p.id} className="px-3 py-1.5 bg-white/5 rounded-xl border border-white/5 text-[10px] font-black text-slate-300">
                              {p.recetas_base?.nombre}
                           </span>
                         ))
                       ) : (
-                        <p className="text-[10px] text-slate-600 font-bold italic">No se han seleccionado sabores.</p>
+                        <p className="text-[10px] text-slate-600 font-bold">No se han seleccionado sabores.</p>
                       )}
                    </div>
 
                    {/* Display Selected Beers */}
                    {event.cervezas_seleccionadas?.length > 0 && (
                      <div className="mt-4 pt-4 border-t border-white/5">
-                       <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                       <h4 className="text-[10px] font-black text-slate-500 tracking-widest mb-3 flex items-center gap-2">
                          <Beer size={14} className="text-brand-red" /> Cerveza Base
                        </h4>
                        <div className="flex flex-wrap gap-2">
                          {event.cervezas_seleccionadas.map((beer, idx) => (
-                           <span key={idx} className="px-3 py-1.5 bg-brand-red/10 rounded-xl border border-brand-red/20 text-[10px] font-black text-brand-red italic">
+                           <span key={idx} className="px-3 py-1.5 bg-brand-red/10 rounded-xl border border-brand-red/20 text-[10px] font-black text-brand-red">
                              {beer}
                            </span>
                          ))}
@@ -427,13 +427,13 @@ const EventsPage = () => {
                     <>
                       <button 
                         onClick={() => handleOpenSelection(event)}
-                        className="btn-secondary w-full py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                        className="btn-secondary w-full py-4 text-[10px] font-black tracking-widest flex items-center justify-center gap-2"
                       >
                          <Edit2 size={16} /> Seleccionar Bebidas
                       </button>
                       <button 
                         onClick={() => handleFinalizeInventory(event)}
-                        className="btn-primary w-full py-4 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-brand-red/20"
+                        className="btn-primary w-full py-4 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-brand-red/20"
                       >
                          <Play size={16} /> Finalizar y Descontar Stock
                       </button>
@@ -442,8 +442,8 @@ const EventsPage = () => {
                  {event.estado === 'finalizado' && (
                    <div className="p-6 bg-emerald-500/5 rounded-2xl border border-emerald-500/20 text-center">
                       <CheckCircle size={32} className="mx-auto text-emerald-400 mb-2" />
-                      <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Insumos Descontados</p>
-                      <p className="text-[8px] text-slate-500 italic mt-1">El stock ha sido actualizado automáticamente.</p>
+                      <p className="text-[10px] font-black text-emerald-400 tracking-widest">Insumos Descontados</p>
+                      <p className="text-[8px] text-slate-500 mt-1">El stock ha sido actualizado automáticamente.</p>
                    </div>
                  )}
               </div>
@@ -472,13 +472,13 @@ const EventsPage = () => {
               <div className="mb-8 border-b border-white/5 pb-6">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h2 className="text-3xl font-black text-white italic tracking-tighter uppercase flex items-center gap-3">
-                       <Beer size={28} className="text-brand-red" /> SELECCIONAR SABORES
+                    <h2 className="text-3xl font-black text-white tracking-tighter flex items-center gap-3">
+                       <Beer size={28} className="text-brand-red" /> Seleccionar sabores
                     </h2>
-                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Selecciona los productos específicos que se servirán en el evento</p>
+                    <p className="text-slate-500 text-[10px] font-black tracking-[0.2em] mt-1">Selecciona los productos específicos que se servirán en el evento</p>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] font-black text-brand-red uppercase bg-brand-red/10 px-3 py-1 rounded-full border border-brand-red/20">
+                    <span className="text-[10px] font-black text-brand-red bg-brand-red/10 px-3 py-1 rounded-full border border-brand-red/20">
                       Paquete: {selectedEvent.paquete_contratado || selectedEvent.cotizaciones?.paquetes_incluidos?.[0]?.nombre || 'Personalizado'}
                     </span>
                   </div>
@@ -489,7 +489,7 @@ const EventsPage = () => {
                 {/* Beer Selection Section in Modal */}
                 <div className="mb-12">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-[10px] font-black text-brand-red uppercase tracking-[0.3em] flex items-center gap-2">
+                    <h3 className="text-[10px] font-black text-brand-red tracking-[0.3em] flex items-center gap-2">
                        <Beer size={14} /> Cerveza Base
                     </h3>
                     <span className="text-[10px] font-black px-2 py-1 rounded bg-brand-red/10 text-brand-red">
@@ -503,7 +503,7 @@ const EventsPage = () => {
                         onClick={() => handleToggleBeer(beer.displayName)}
                         className={`p-4 rounded-2xl border transition-all text-left group relative ${selectedBeers.includes(beer.displayName) ? 'bg-brand-red border-brand-red shadow-lg shadow-brand-red/20' : 'bg-white/5 border-white/5 hover:border-brand-red/30'}`}
                       >
-                        <div className={`font-black text-xs uppercase italic tracking-tight ${selectedBeers.includes(beer.displayName) ? 'text-white' : 'text-slate-200'}`}>
+                        <div className={`font-black text-xs tracking-tight ${selectedBeers.includes(beer.displayName) ? 'text-white' : 'text-slate-200'}`}>
                           {beer.displayName}
                         </div>
                         {selectedBeers.includes(beer.displayName) && (
@@ -525,7 +525,7 @@ const EventsPage = () => {
                   return (
                     <div key={cat} className={!isAvailable ? 'opacity-40 grayscale' : ''}>
                       <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-[10px] font-black text-brand-red uppercase tracking-[0.3em] flex items-center gap-2">
+                        <h3 className="text-[10px] font-black text-brand-red tracking-[0.3em] flex items-center gap-2">
                            <ArrowRight size={14} /> {CATEGORY_LABELS[cat]}
                         </h3>
                         {limit && (
@@ -534,7 +534,7 @@ const EventsPage = () => {
                           </span>
                         )}
                         {cat === 'Basica' && (
-                          <span className="text-[10px] font-black px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 uppercase">
+                          <span className="text-[10px] font-black px-2 py-1 rounded bg-emerald-500/10 text-emerald-400">
                             Ilimitado
                           </span>
                         )}
@@ -548,7 +548,7 @@ const EventsPage = () => {
                              onClick={() => handleToggleRecipe(recipe.id, cat)}
                              className={`p-4 rounded-2xl border transition-all text-left group relative ${selectedRecipes.includes(recipe.id) ? 'bg-brand-red border-brand-red shadow-lg shadow-brand-red/20' : 'bg-white/5 border-white/5 hover:border-brand-red/30 focus-within:border-brand-red/50'}`}
                            >
-                              <div className={`font-black text-xs uppercase italic tracking-tight ${selectedRecipes.includes(recipe.id) ? 'text-white' : 'text-slate-200'}`}>
+                              <div className={`font-black text-xs tracking-tight ${selectedRecipes.includes(recipe.id) ? 'text-white' : 'text-slate-200'}`}>
                                 {recipe.nombre}
                               </div>
                               <div className={`text-[9px] font-bold mt-1 ${selectedRecipes.includes(recipe.id) ? 'text-white/60' : 'text-slate-500'}`}>
@@ -566,12 +566,12 @@ const EventsPage = () => {
               </div>
 
               <div className="mt-8 pt-6 border-t border-white/5 flex justify-between items-center">
-                 <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                 <div className="text-[10px] font-black text-slate-500 tracking-widest">
                    {selectedRecipes.length} Productos seleccionados
                  </div>
                  <div className="flex gap-4">
-                    <button onClick={() => setIsSelectionModalOpen(false)} className="btn-secondary px-8 font-black text-[10px] uppercase">Cancelar</button>
-                    <button onClick={handleSaveSelection} className="btn-primary px-10 font-black italic uppercase flex items-center gap-2 tracking-tighter">
+                    <button onClick={() => setIsSelectionModalOpen(false)} className="btn-secondary px-8 font-black text-[10px]">Cancelar</button>
+                    <button onClick={handleSaveSelection} className="btn-primary px-10 font-black flex items-center gap-2 tracking-tighter">
                        <Save size={18} /> Guardar Selección
                     </button>
                  </div>
@@ -592,7 +592,7 @@ const EventsPage = () => {
               <div className="w-20 h-20 bg-brand-red/20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
                 <ShoppingBag size={40} className="text-brand-red" />
               </div>
-              <h2 className="text-4xl font-black text-white italic tracking-tighter mb-4 uppercase">¡STOCK INSUFICIENTE!</h2>
+              <h2 className="text-4xl font-black text-white tracking-tighter mb-4">¡Stock insuficiente!</h2>
               <p className="text-slate-400 mb-8 leading-relaxed">
                 El evento ha sido finalizado, pero algunos insumos se han agotado. Hemos generado una **Lista de Compras** con lo que hace falta.
               </p>
@@ -600,12 +600,12 @@ const EventsPage = () => {
               <div className="space-y-4 mb-10">
                  {deficitItems.slice(0, 3).map((item, idx) => (
                    <div key={idx} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
-                      <span className="text-[10px] font-black text-slate-300 uppercase">{item.nombre}</span>
-                      <span className="text-xs font-black text-brand-red italic">-{item.faltante.toFixed(1)} {item.unidad}</span>
+                      <span className="text-[10px] font-black text-slate-300">{item.nombre}</span>
+                      <span className="text-xs font-black text-brand-red">-{item.faltante.toFixed(1)} {item.unidad}</span>
                    </div>
                  ))}
                  {deficitItems.length > 3 && (
-                   <p className="text-[10px] text-slate-500 font-bold uppercase italic">... y {deficitItems.length - 3} productos más</p>
+                   <p className="text-[10px] text-slate-500 font-bold">... y {deficitItems.length - 3} productos más</p>
                  )}
               </div>
 
@@ -618,14 +618,14 @@ const EventsPage = () => {
                   {({ loading }) => (
                     <div className="flex items-center justify-center gap-3">
                       <Save size={20} />
-                      <span className="font-black italic text-lg">{loading ? 'GENERANDO PDF...' : 'DESCARGAR LISTA DE COMPRAS'}</span>
+                      <span className="font-black text-lg">{loading ? 'Generando PDF...' : 'Descargar lista de compras'}</span>
                     </div>
                   )}
                 </PDFDownloadLink>
                 
                 <button 
                   onClick={() => setIsDeficitModalOpen(false)}
-                  className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors"
+                  className="text-[10px] font-black text-slate-500 tracking-widest hover:text-white transition-colors"
                 >
                   Cerrar Ventana
                 </button>

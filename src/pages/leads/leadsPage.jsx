@@ -197,11 +197,11 @@ const LeadsPage = () => {
       {/* HEADER SECTION */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md gap-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white italic tracking-tighter flex items-center gap-3">
+          <h1 className="lobster text-2xl sm:text-3xl text-white flex items-center gap-3">
             <Target className="text-brand-red animate-pulse shrink-0" size={32} />
-            GESTIÓN DE LEADS
+            Gestión de Leads
           </h1>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Pipeline de Ventas • Las Groseras CRM</p>
+          <p className="text-slate-500 text-xs font-bold tracking-[0.2em] mt-1">Pipeline de Ventas • Las Groseras CRM</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
           <div className="relative group w-full lg:w-72">
@@ -218,9 +218,9 @@ const LeadsPage = () => {
             className="btn-primary shadow-xl shadow-brand-red/40 px-8 py-3 group overflow-hidden relative w-full lg:w-auto flex justify-center" 
             onClick={() => handleOpenModal()}
           >
-            <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500 italic"></div>
+            <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500"></div>
             <Plus size={20} className="stroke-[3px]" />
-            <span className="font-black italic">NUEVO LEAD</span>
+            <span className="font-black">Nuevo lead</span>
           </button>
         </div>
       </div>
@@ -231,25 +231,25 @@ const LeadsPage = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-white/[0.02] border-b border-white/5">
-                <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500">Prospecto</th>
-                <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500">Evento & PAX</th>
-                <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500">Fecha Tentativa</th>
-                <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
-                <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500">Origen</th>
-                <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Acción</th>
+                <th className="px-6 py-5 text-[10px] font-black tracking-widest text-slate-500">Prospecto</th>
+                <th className="px-6 py-5 text-[10px] font-black tracking-widest text-slate-500">Evento & PAX</th>
+                <th className="px-6 py-5 text-[10px] font-black tracking-widest text-slate-500">Fecha Tentativa</th>
+                <th className="px-6 py-5 text-[10px] font-black tracking-widest text-slate-500">Status</th>
+                <th className="px-6 py-5 text-[10px] font-black tracking-widest text-slate-500">Origen</th>
+                <th className="px-6 py-5 text-[10px] font-black tracking-widest text-slate-500 text-right">Acción</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.03]">
               {loading && leads.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-20 text-center text-slate-500 italic">
+                  <td colSpan="6" className="px-6 py-20 text-center text-slate-500">
                     <Clock className="mx-auto mb-2 opacity-10 animate-spin" size={32} />
                     Cargando base de datos...
                   </td>
                 </tr>
               ) : filteredLeads.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-20 text-center text-slate-500 italic">No se encontraron prospectos que coincidan.</td>
+                  <td colSpan="6" className="px-6 py-20 text-center text-slate-500">No se encontraron prospectos que coincidan.</td>
                 </tr>
               ) : filteredLeads.map((lead) => (
                 <tr 
@@ -259,7 +259,7 @@ const LeadsPage = () => {
                 >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-brand-red/10 border border-brand-red/20 flex items-center justify-center text-brand-red font-black italic">
+                      <div className="w-10 h-10 rounded-full bg-brand-red/10 border border-brand-red/20 flex items-center justify-center text-brand-red font-black">
                         {lead.nombre_contacto.charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -285,7 +285,7 @@ const LeadsPage = () => {
                   </td>
                   <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                     <select 
-                      className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border-0 bg-white/5 cursor-pointer focus:ring-1 focus:ring-brand-red/50 ${LEAD_STATUSES.find(s => s.id === lead.estado)?.text || 'text-slate-400'}`}
+                      className={`text-[10px] font-black tracking-widest px-3 py-1.5 rounded-full border-0 bg-white/5 cursor-pointer focus:ring-1 focus:ring-brand-red/50 ${LEAD_STATUSES.find(s => s.id === lead.estado)?.text || 'text-slate-400'}`}
                       value={lead.estado}
                       onChange={(e) => updateStatus(lead.id, e.target.value)}
                     >
@@ -297,7 +297,7 @@ const LeadsPage = () => {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                        {getSourceIcon(lead.canal_origen)}
-                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{lead.canal_origen}</span>
+                       <span className="text-[10px] font-bold text-slate-400 tracking-tighter">{lead.canal_origen}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
@@ -338,11 +338,11 @@ const LeadsPage = () => {
               </button>
               
               <div className="mb-8 border-b border-white/5 pb-6">
-                <h2 className="text-3xl font-black text-white italic tracking-tighter flex items-center gap-3">
+                <h2 className="text-3xl font-black text-white tracking-tighter flex items-center gap-3">
                   {editingLead ? <Edit2 size={28} className="text-amber-400" /> : <Plus size={28} className="text-brand-red font-black" />}
-                  {editingLead ? 'EDITAR PROSPECTO' : 'REGISTRAR NUEVO LEAD'}
+                  {editingLead ? 'Editar prospecto' : 'Registrar nuevo lead'}
                 </h2>
-                <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
+                <p className="text-slate-500 text-[10px] font-black tracking-[0.2em] mt-1">
                   {editingLead ? `ID: ${editingLead.id.split('-')[0]} • Actualizando seguimiento` : 'Ingresa los datos del cliente para el flujo de ventas'}
                 </p>
               </div>
@@ -350,11 +350,11 @@ const LeadsPage = () => {
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* INFORMACIÓN PERSONAL */}
                 <div className="space-y-5">
-                   <h3 className="text-xs font-black text-brand-red uppercase tracking-widest flex items-center gap-2">
+                   <h3 className="text-xs font-black text-brand-red tracking-widest flex items-center gap-2">
                      <Users size={14} /> Datos del Cliente
                    </h3>
                    <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Nombre del Contacto *</label>
+                    <label className="text-[10px] font-black text-slate-500 tracking-widest mb-1.5 block">Nombre del Contacto *</label>
                     <input 
                       required
                       type="text" 
@@ -365,7 +365,7 @@ const LeadsPage = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">WhatsApp / Tel</label>
+                      <label className="text-[10px] font-black text-slate-500 tracking-widest mb-1.5 block">WhatsApp / Tel</label>
                       <input 
                         type="tel"
                         className="input-field bg-white/5 border-white/10"
@@ -374,7 +374,7 @@ const LeadsPage = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Email</label>
+                      <label className="text-[10px] font-black text-slate-500 tracking-widest mb-1.5 block">Email</label>
                       <input 
                         type="email"
                         className="input-field bg-white/5 border-white/10"
@@ -384,7 +384,7 @@ const LeadsPage = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Canal de Origen</label>
+                    <label className="text-[10px] font-black text-slate-500 tracking-widest mb-1.5 block">Canal de Origen</label>
                     <select 
                       className="input-field bg-white/5 border-white/10"
                       value={formData.canal_origen}
@@ -401,11 +401,11 @@ const LeadsPage = () => {
 
                 {/* DETALLES DEL EVENTO */}
                 <div className="space-y-5">
-                   <h3 className="text-xs font-black text-brand-red uppercase tracking-widest flex items-center gap-2">
+                   <h3 className="text-xs font-black text-brand-red tracking-widest flex items-center gap-2">
                      <Calendar size={14} /> Detalles del Evento
                    </h3>
                    <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Tipo de Evento</label>
+                    <label className="text-[10px] font-black text-slate-500 tracking-widest mb-1.5 block">Tipo de Evento</label>
                     <input 
                       placeholder="Boda, XV, Corporativo..."
                       className="input-field bg-white/5 border-white/10"
@@ -415,7 +415,7 @@ const LeadsPage = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Fecha Tentativa</label>
+                      <label className="text-[10px] font-black text-slate-500 tracking-widest mb-1.5 block">Fecha Tentativa</label>
                       <input 
                         type="date"
                         className="input-field bg-white/5 border-white/10"
@@ -424,7 +424,7 @@ const LeadsPage = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Nº Personas (PAX)</label>
+                      <label className="text-[10px] font-black text-slate-500 tracking-widest mb-1.5 block">Nº Personas (PAX)</label>
                       <input 
                         type="number"
                         className="input-field bg-white/5 border-white/10"
@@ -434,7 +434,7 @@ const LeadsPage = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Estado en Pipeline</label>
+                    <label className="text-[10px] font-black text-slate-500 tracking-widest mb-1.5 block">Estado en Pipeline</label>
                     <select 
                       className="input-field bg-white/5 border-white/10 font-bold"
                       value={formData.estado}
@@ -449,7 +449,7 @@ const LeadsPage = () => {
 
                 {/* NOTAS */}
                 <div className="md:col-span-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Notas de Seguimiento</label>
+                  <label className="text-[10px] font-black text-slate-500 tracking-widest mb-1.5 block">Notas de Seguimiento</label>
                   <textarea 
                     rows={3}
                     className="input-field bg-white/5 border-white/10 resize-none min-h-[100px]"
@@ -465,7 +465,7 @@ const LeadsPage = () => {
                     <button 
                       type="button" 
                       onClick={() => handleDelete(editingLead.id)}
-                      className="text-rose-500 hover:text-rose-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 px-4 py-2 hover:bg-rose-500/10 rounded-xl transition-all"
+                      className="text-rose-500 hover:text-rose-400 text-[10px] font-black tracking-widest flex items-center gap-2 px-4 py-2 hover:bg-rose-500/10 rounded-xl transition-all"
                     >
                       <Trash2 size={16} />
                       Eliminar Registro
@@ -475,8 +475,8 @@ const LeadsPage = () => {
                     <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary rounded-xl px-6">Cancelar</button>
                     <button type="submit" className="btn-primary rounded-xl px-10 shadow-xl shadow-brand-red/20">
                       <Save size={20} />
-                      <span className="font-black italic uppercase tracking-tighter">
-                        {editingLead ? 'ACTUALIZAR' : 'GUARDAR LEAD'}
+                      <span className="font-black tracking-tighter">
+                        {editingLead ? 'ACTUALIZAR' : 'Guardar lead'}
                       </span>
                     </button>
                   </div>

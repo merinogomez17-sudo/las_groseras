@@ -36,8 +36,8 @@ function App() {
   }, []);
 
   return (
-    <div className={`flex min-h-screen bg-brand-dark text-slate-100 ${isPublicRoute ? 'block' : 'flex'}`}>
-      <Toaster position="top-right" expand={false} richColors dark />
+    <div className={`flex min-h-screen bg-brand-dark text-brand-cream ${isPublicRoute ? 'block' : 'flex'}`}>
+      <Toaster position="top-right" expand={false} richColors theme="dark" />
       
       {!isPublicRoute && (
         <>
@@ -63,7 +63,8 @@ function App() {
       {!isPublicRoute && isMobile && (
         <button 
           onClick={() => setIsMobileOpen(true)}
-          className="fixed top-6 left-6 z-[80] w-12 h-12 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl flex items-center justify-center text-white"
+          className="fixed top-6 left-6 z-[80] w-12 h-12 backdrop-blur-xl rounded-2xl flex items-center justify-center"
+          style={{ background: 'rgba(254,204,48,0.12)', border: '1px solid rgba(254,204,48,0.25)', color: '#fecc30' }}
         >
           <Menu size={24} />
         </button>

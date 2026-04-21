@@ -8,14 +8,24 @@ export default {
     extend: {
       colors: {
         brand: {
-          light: '#f8fafc',
-          dark: '#0f172a',
-          red: '#BE123C', // Rose 700
-          "red-dark": '#9F1239', // Rose 800
+          cream: '#f7ebd7',
+          dark: '#020100',
+          yellow: '#fecc30',
+          'yellow-dark': '#d4a800',
+          teal: '#40b3ac',
+          'teal-dark': '#2e9991',
+          // Aliases so existing references to brand-red auto-update
+          red: '#fecc30',
+          'red-dark': '#d4a800',
+          light: '#f7ebd7',
         }
       },
+      fontFamily: {
+        sans: ['Josefin Sans', 'sans-serif'],
+        display: ['Lobster', 'cursive'],
+      },
       backgroundImage: {
-        'glass-gradient': 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0))',
+        'glass-gradient': 'linear-gradient(135deg, rgba(247, 235, 215, 0.08), rgba(247, 235, 215, 0))',
       }
     },
   },

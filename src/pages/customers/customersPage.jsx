@@ -115,15 +115,15 @@ const CustomersPage = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white italic tracking-tighter flex items-center gap-3 uppercase">
+          <h1 className="lobster text-2xl sm:text-3xl text-white flex items-center gap-3">
             <Users className="text-brand-red shrink-0" size={32} />
-            CLIENTES
+            Clientes
           </h1>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Base de datos de clientes particulares y empresas.</p>
+          <p className="text-slate-500 text-xs font-bold tracking-[0.2em] mt-1">Base de datos de clientes particulares y empresas.</p>
         </div>
         <button className="btn-primary shadow-xl shadow-brand-red/40 px-8 py-3 group w-full sm:w-auto flex justify-center" onClick={() => handleOpenModal()}>
           <Plus size={20} className="stroke-[3px]" />
-          <span className="font-black italic">NUEVO CLIENTE</span>
+          <span className="font-black">Nuevo cliente</span>
         </button>
       </div>
 
@@ -157,7 +157,7 @@ const CustomersPage = () => {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white leading-tight">{customer.nombre_completo}</h3>
-                  <span className={`text-[10px] uppercase tracking-wider font-black px-2 py-0.5 rounded-full mt-1 inline-block ${customer.tipo_cliente === 'empresa' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-brand-red/10 text-brand-red border border-brand-red/20'}`}>
+                  <span className={`text-[10px] tracking-wider font-black px-2 py-0.5 rounded-full mt-1 inline-block ${customer.tipo_cliente === 'empresa' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-brand-red/10 text-brand-red border border-brand-red/20'}`}>
                     {customer.tipo_cliente}
                   </span>
                 </div>

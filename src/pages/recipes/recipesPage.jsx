@@ -200,11 +200,11 @@ const RecipesPage = () => {
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md gap-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white italic tracking-tighter flex items-center gap-3 uppercase">
+          <h1 className="lobster text-2xl sm:text-3xl text-white flex items-center gap-3">
              <BookOpen className="text-brand-red animate-pulse shrink-0" size={32} />
-             ESCANDALLOS & RECETAS
+             Costos
           </h1>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Costeo de Productos Elaborados • Las Groseras</p>
+          <p className="text-slate-500 text-xs font-bold tracking-[0.2em] mt-1">Costeo de Productos Elaborados • Las Groseras</p>
         </div>
         <div className="flex gap-4 w-full sm:w-auto">
           <button className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 transition-all" onClick={fetchRecipes}>
@@ -215,7 +215,7 @@ const RecipesPage = () => {
             className="btn-primary shadow-xl shadow-brand-red/40 px-8 py-3 group flex-1 sm:flex-none justify-center"
           >
             <Plus size={20} className="stroke-[3px]" />
-            <span className="font-black italic">NUEVA RECETA</span>
+            <span className="font-black">Nueva receta</span>
           </button>
         </div>
       </div>
@@ -232,7 +232,7 @@ const RecipesPage = () => {
         <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
             <Filter size={16} className="text-brand-red" />
             <select 
-              className="bg-transparent focus:outline-none text-white text-xs font-bold uppercase tracking-widest cursor-pointer"
+              className="bg-transparent focus:outline-none text-white text-xs font-bold tracking-widest cursor-pointer"
               value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
             >
               {categories.map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
@@ -253,7 +253,7 @@ const RecipesPage = () => {
           >
             <div className="p-6">
               <div className="flex justify-between items-start mb-4">
-                <span className="px-2 py-1 rounded-md bg-white/5 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                <span className="px-2 py-1 rounded-md bg-white/5 text-[9px] font-black tracking-widest text-slate-400">
                   {recipe.categoria}
                 </span>
                 <div className="flex gap-1">
@@ -272,25 +272,25 @@ const RecipesPage = () => {
                 </div>
               </div>
 
-              <h3 className="text-xl font-black text-white italic tracking-tighter group-hover:text-brand-red transition-colors uppercase">
+              <h3 className="text-xl font-black text-white tracking-tighter group-hover:text-brand-red transition-colors">
                 {recipe.nombre}
               </h3>
 
               <div className="mt-4 p-4 bg-white/5 rounded-2xl border border-white/5">
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Costo Proyectado</span>
-                  <span className="text-xl font-black text-emerald-400 italic">${recipe.costo_total?.toFixed(2)}</span>
+                  <span className="text-[10px] font-black text-slate-500 tracking-widest uppercase">COSTO PROYECTADO</span>
+                  <span className="text-xl font-black text-emerald-400">${recipe.costo_total?.toFixed(2)}</span>
                 </div>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {recipe.receta_componentes?.slice(0, 3).map((item, i) => (
-                  <span key={i} className="text-[9px] font-bold text-slate-500 bg-white/5 py-1 px-2 rounded-md italic">
+                  <span key={i} className="text-[9px] font-bold text-slate-500 bg-white/5 py-1 px-2 rounded-md">
                     {item.insumo_nombre_manual || (item.inventario ? `${item.inventario.producto_base || item.inventario.nombre} (${item.inventario.formato || 'Estándar'})` : 'Insumo desconocido')}
                   </span>
                 ))}
                 {recipe.receta_componentes?.length > 3 && (
-                  <span className="text-[9px] font-bold text-brand-red bg-brand-red/5 py-1 px-2 rounded-md italic">
+                  <span className="text-[9px] font-bold text-brand-red bg-brand-red/5 py-1 px-2 rounded-md">
                     +{recipe.receta_componentes.length - 3} más
                   </span>
                 )}
@@ -321,31 +321,31 @@ const RecipesPage = () => {
 
               <div className="mb-8 border-b border-white/10 pb-6">
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="px-3 py-1 rounded bg-brand-red/10 text-brand-red text-[10px] font-black uppercase tracking-widest">
+                  <span className="px-3 py-1 rounded bg-brand-red/10 text-brand-red text-[10px] font-black tracking-widest">
                     {selectedRecipe.categoria}
                   </span>
                 </div>
-                <h2 className="text-4xl font-black text-white italic tracking-tighter uppercase">{selectedRecipe.nombre}</h2>
-                <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Desglose detallado de ingredientes y costos</p>
+                <h2 className="text-4xl font-black text-white tracking-tighter">{selectedRecipe.nombre}</h2>
+                <p className="text-slate-500 text-[10px] font-black tracking-[0.2em] mt-1">Desglose detallado de ingredientes y costos</p>
               </div>
 
               <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
                 {selectedRecipe.receta_componentes?.map((item, idx) => (
                   <div key={idx} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-brand-red font-black italic">
+                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-brand-red font-black">
                         {idx + 1}
                       </div>
                       <div>
-                        <div className="font-black text-sm uppercase text-white">{item.insumo_nombre_manual || (item.inventario ? `${item.inventario.producto_base || item.inventario.nombre} (${item.inventario.formato || 'Estándar'})` : 'Insumo desconocido')}</div>
-                        <div className="text-[10px] text-slate-500 font-bold uppercase">
+                        <div className="font-black text-sm text-white">{item.insumo_nombre_manual || (item.inventario ? `${item.inventario.producto_base || item.inventario.nombre} (${item.inventario.formato || 'Estándar'})` : 'Insumo desconocido')}</div>
+                        <div className="text-[10px] text-slate-500 font-bold">
                           {item.cantidad} {item.unidad}
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs font-black text-emerald-400 italic">${item.costo_proporcional?.toFixed(2)}</div>
-                      <div className="text-[9px] text-slate-600 font-bold">COSTO INV</div>
+                      <div className="text-xs font-black text-emerald-400">${item.costo_proporcional?.toFixed(2)}</div>
+                      <div className="text-[9px] text-slate-600 font-bold">Costo inv</div>
                     </div>
                   </div>
                 ))}
@@ -353,17 +353,17 @@ const RecipesPage = () => {
 
               <div className="mt-8 pt-6 border-t border-white/10 flex justify-between items-center">
                 <div>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Bebida</p>
-                  <p className="text-3xl font-black text-white italic tracking-tighter mt-1">${selectedRecipe.costo_total?.toFixed(2)}</p>
+                  <p className="text-[10px] font-black text-slate-500 tracking-widest">Total Bebida</p>
+                  <p className="text-3xl font-black text-white tracking-tighter mt-1">${selectedRecipe.costo_total?.toFixed(2)}</p>
                 </div>
                 <div className="flex gap-4">
-                  <button onClick={() => setIsModalOpen(false)} className="btn-secondary px-8 font-black text-[10px] uppercase">Cerrar</button>
+                  <button onClick={() => setIsModalOpen(false)} className="btn-secondary px-8 font-black text-[10px]">Cerrar</button>
                   <button 
                     onClick={() => openEditor(selectedRecipe)}
                     className="btn-primary px-8 group"
                   >
                     <Edit2 size={18} className="stroke-[3px]" />
-                    <span className="font-black italic">EDITAR FORMULA</span>
+                    <span className="font-black">Editar fórmula</span>
                   </button>
                 </div>
               </div>
@@ -389,10 +389,10 @@ const RecipesPage = () => {
                   <Settings size={28} />
                 </div>
                 <div>
-                  <h2 className="text-3xl font-black text-white italic tracking-tighter uppercase">
-                    {editorData.id ? 'EDITAR RECETA' : 'NUEVA FORMULA/ESCANDALLO'}
+                  <h2 className="text-3xl font-black text-white tracking-tighter">
+                    {editorData.id ? 'Editar receta' : 'Nueva fórmula/escandallo'}
                   </h2>
-                  <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Configuración técnica de insumos y proporciones</p>
+                  <p className="text-slate-500 text-[10px] font-black tracking-[0.2em] mt-1">Configuración técnica de insumos y proporciones</p>
                 </div>
               </div>
 
@@ -400,16 +400,16 @@ const RecipesPage = () => {
                 {/* INFO BASE */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                    <div className="space-y-2">
-                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Nombre de la Bebida</label>
+                     <label className="text-[10px] font-black text-slate-500 tracking-widest pl-1">Nombre de la Bebida</label>
                      <input 
-                       type="text" placeholder="Ej: Michelada Clásica Pro" className="input-field italic font-black uppercase"
+                       type="text" placeholder="Ej: Michelada Clásica Pro" className="input-field font-black"
                        value={editorData.nombre} onChange={(e) => setEditorData({...editorData, nombre: e.target.value})}
                      />
                    </div>
                    <div className="space-y-2">
-                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Categoría</label>
+                     <label className="text-[10px] font-black text-slate-500 tracking-widest pl-1">Categoría</label>
                      <select 
-                       className="input-field bg-slate-800 font-bold uppercase tracking-widest cursor-pointer"
+                       className="input-field bg-slate-800 font-bold tracking-widest cursor-pointer"
                        value={editorData.categoria} onChange={(e) => setEditorData({...editorData, categoria: e.target.value})}
                      >
                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -420,10 +420,10 @@ const RecipesPage = () => {
                 {/* COMPONENTES */}
                 <div className="space-y-4">
                   <div className="flex justify-between items-center px-1">
-                     <h3 className="text-xs font-black text-brand-red uppercase tracking-widest flex items-center gap-2">
-                        <ShoppingBag size={14} /> INGREDIENTES / COMPONENTES
+                     <h3 className="text-xs font-black text-brand-red tracking-widest flex items-center gap-2">
+                        <ShoppingBag size={14} /> Ingredientes / componentes
                      </h3>
-                     <button onClick={handleAddComponent} className="flex items-center gap-2 text-[10px] font-black text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-widest">
+                     <button onClick={handleAddComponent} className="flex items-center gap-2 text-[10px] font-black text-emerald-400 hover:text-emerald-300 transition-colors tracking-widest">
                        <Plus size={14} /> Agregar Fila
                      </button>
                   </div>
@@ -438,7 +438,7 @@ const RecipesPage = () => {
                         <div key={idx} className="flex flex-col md:flex-row gap-3 p-4 bg-white/5 rounded-2xl border border-white/5 group relative">
                           <div className="flex-1">
                             <select 
-                              className="w-full bg-slate-900 border-none rounded-xl p-3 text-xs font-bold text-white uppercase"
+                              className="w-full bg-slate-900 border-none rounded-xl p-3 text-xs font-bold text-white"
                               value={comp.insumo_id}
                               onChange={(e) => handleUpdateComponent(idx, 'insumo_id', e.target.value)}
                             >
@@ -457,12 +457,12 @@ const RecipesPage = () => {
                             />
                           </div>
                           <div className="w-full md:w-32">
-                             <div className="w-full bg-slate-800/50 rounded-xl p-3 text-[10px] font-black text-center text-slate-500 uppercase">
+                             <div className="w-full bg-slate-800/50 rounded-xl p-3 text-[10px] font-black text-center text-slate-500">
                                {comp.unidad || 'Unidad'}
                              </div>
                           </div>
                           <div className="w-full md:w-32 flex items-center justify-center">
-                             <div className="text-sm font-black text-emerald-400 italic">${proportionalCost.toFixed(2)}</div>
+                             <div className="text-sm font-black text-emerald-400">${proportionalCost.toFixed(2)}</div>
                           </div>
                           <button 
                             onClick={() => handleRemoveComponent(idx)}
@@ -480,8 +480,8 @@ const RecipesPage = () => {
               {/* FOOTER EDITOR */}
               <div className="mt-8 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-6">
                  <div>
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Costo Total por Bebida</span>
-                    <h4 className="text-4xl font-black text-emerald-400 italic tracking-tighter">
+                    <span className="text-[10px] font-black text-slate-500 tracking-widest">Costo Total por Bebida</span>
+                    <h4 className="text-4xl font-black text-emerald-400 tracking-tighter">
                       ${editorData.componentes.reduce((acc, comp) => {
                         const insumo = inventory.find(i => i.id === comp.insumo_id);
                         return acc + (insumo ? (insumo.precio_unitario / insumo.piezas_por_unidad) * (parseFloat(comp.cantidad) || 0) : 0);
@@ -489,9 +489,9 @@ const RecipesPage = () => {
                     </h4>
                  </div>
                  <div className="flex gap-4 w-full md:w-auto">
-                    <button onClick={() => setIsEditorOpen(false)} className="btn-secondary flex-1 md:px-12 font-black uppercase text-[10px]">Cerrar</button>
-                    <button onClick={handleSaveRecipe} className="btn-primary flex-1 md:px-12 font-black italic uppercase tracking-tighter shadow-xl shadow-brand-red/20 group">
-                      <Save size={18} /> GUARDAR RECETA
+                    <button onClick={() => setIsEditorOpen(false)} className="btn-secondary flex-1 md:px-12 font-black text-[10px]">Cerrar</button>
+                    <button onClick={handleSaveRecipe} className="btn-primary flex-1 md:px-12 font-black tracking-tighter shadow-xl shadow-brand-red/20 group">
+                      <Save size={18} /> Guardar receta
                     </button>
                  </div>
               </div>

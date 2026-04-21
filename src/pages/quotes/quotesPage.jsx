@@ -249,11 +249,11 @@ const QuotesPage = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md gap-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white italic tracking-tighter flex items-center gap-3">
+          <h1 className="lobster text-2xl sm:text-3xl text-white flex items-center gap-3">
             <FileText className="text-brand-red shrink-0" size={32} />
-            COTIZACIONES
+            Cotizaciones
           </h1>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Generador de Presupuestos • Las Groseras</p>
+          <p className="text-slate-500 text-xs font-bold tracking-[0.2em] mt-1">Generador de Presupuestos • Las Groseras</p>
         </div>
         <button 
           className="btn-primary shadow-xl shadow-brand-red/40 px-8 py-3 group w-full sm:w-auto" 
@@ -274,18 +274,18 @@ const QuotesPage = () => {
           }}
         >
           <PlusCircle size={20} className="stroke-[3px]" />
-          <span className="font-black italic">NUEVA COTIZACIÓN</span>
+          <span className="font-black">Nueva cotización</span>
         </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
         {loading ? (
-          <div className="p-20 text-center text-slate-500 italic flex flex-col items-center">
+          <div className="p-20 text-center text-slate-500 flex flex-col items-center">
             <Calculator className="animate-spin mb-4 opacity-20" size={48} />
             Cargando historial...
           </div>
         ) : quotes.length === 0 ? (
-          <div className="glass p-20 text-center text-slate-500 italic">No hay cotizaciones registradas hoy.</div>
+          <div className="glass p-20 text-center text-slate-500">No hay cotizaciones registradas hoy.</div>
         ) : quotes.map((quote) => (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
@@ -299,19 +299,19 @@ const QuotesPage = () => {
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded">{quote.numero_cotizacion}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-tighter ${quote.estado === 'aprobada' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-500/10 text-slate-400'}`}>
+                  <span className="text-[10px] font-black text-slate-500 tracking-widest bg-white/5 px-2 py-0.5 rounded">{quote.numero_cotizacion}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-black tracking-tighter ${quote.estado === 'aprobada' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-500/10 text-slate-400'}`}>
                     {quote.estado}
                   </span>
                 </div>
-                <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">{quote.leads?.nombre_contacto || 'Cliente Directo'}</h3>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{quote.tipo_evento} • {quote.numero_personas} <span className="text-brand-red">PAX</span></p>
+                <h3 className="text-xl font-black text-white tracking-tighter">{quote.leads?.nombre_contacto || 'Cliente Directo'}</h3>
+                <p className="text-xs text-slate-500 font-bold tracking-widest">{quote.tipo_evento} • {quote.numero_personas} <span className="text-brand-red">Pax</span></p>
               </div>
             </div>
             
             <div className="text-right px-8 border-l border-white/5 hidden md:block">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Presupuesto Estimado</p>
-              <h4 className="text-3xl font-black text-emerald-400 italic">${quote.total?.toLocaleString()}</h4>
+              <p className="text-[10px] font-black text-slate-500 tracking-widest mb-1">Presupuesto Estimado</p>
+              <h4 className="text-3xl font-black text-emerald-400">${quote.total?.toLocaleString()}</h4>
             </div>
 
             <div className="flex gap-2">
@@ -321,7 +321,7 @@ const QuotesPage = () => {
                   className="px-4 py-3 bg-brand-red shadow-lg shadow-brand-red/20 hover:bg-brand-red/80 text-white rounded-xl transition-all flex items-center gap-2 group"
                 >
                   <CreditCard size={18} className="group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] font-black italic uppercase">Confirmar Pago</span>
+                  <span className="text-[10px] font-black">Confirmar Pago</span>
                 </button>
               )}
               <PDFDownloadLink 
@@ -367,8 +367,8 @@ const QuotesPage = () => {
                    <div className="w-24 h-24 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mb-8 shadow-2xl shadow-emerald-500/20 border border-emerald-500/30">
                       <ShieldCheck size={48} className="stroke-[2.5px]" />
                    </div>
-                   <h2 className="text-4xl font-black text-white italic tracking-tighter uppercase mb-3">¡Cotización Generada!</h2>
-                   <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-10">Referencia: {createdQuote?.numero_cotizacion}</p>
+                   <h2 className="text-4xl font-black text-white tracking-tighter mb-3">¡Cotización Generada!</h2>
+                   <p className="text-slate-500 font-bold tracking-widest text-[10px] mb-10">Referencia: {createdQuote?.numero_cotizacion}</p>
                    
                    <div className="flex flex-col gap-4 w-full">
                       <PDFDownloadLink 
@@ -379,7 +379,7 @@ const QuotesPage = () => {
                         {({ loading }) => (
                           <>
                             {loading ? <Clock className="animate-spin" /> : <Download size={24} className="stroke-[3px]" />}
-                            <span className="text-lg font-black italic uppercase tracking-tighter">Descargar PDF Profesional</span>
+                            <span className="text-lg font-black tracking-tighter">Descargar PDF Profesional</span>
                           </>
                         )}
                       </PDFDownloadLink>
@@ -390,7 +390,7 @@ const QuotesPage = () => {
                            setShowSuccess(false);
                            setStep(1);
                          }}
-                         className="py-4 text-slate-500 font-black italic uppercase tracking-widest text-xs hover:text-white transition-colors"
+                         className="py-4 text-slate-500 font-black tracking-widest text-xs hover:text-white transition-colors"
                       >
                         Volver al Panel de Control
                       </button>
@@ -405,7 +405,7 @@ const QuotesPage = () => {
                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-lg transition-all ${step >= s ? 'bg-brand-red text-white shadow-lg shadow-brand-red/30' : 'bg-white/5 text-slate-600'}`}>
                          {step > s ? <CheckCircle size={24} /> : s}
                        </div>
-                       <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${step >= s ? 'text-white' : 'text-slate-600'}`}>
+                       <span className={`text-[10px] font-black tracking-[0.2em] ${step >= s ? 'text-white' : 'text-slate-600'}`}>
                          {s === 1 ? 'Cliente' : s === 2 ? 'Configuración' : 'Resumen'}
                        </span>
                        {s < 3 && <ChevronRight size={14} className="text-slate-800 mx-2" />}
@@ -418,10 +418,10 @@ const QuotesPage = () => {
                 {step === 1 && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-in fade-in slide-in-from-right-10 duration-500">
                     <div className="md:col-span-2">
-                       <h3 className="text-sm font-black text-brand-red uppercase tracking-widest mb-6 flex items-center gap-2">
-                         <User size={18} /> ASIGNAR PROSPECTO
+                       <h3 className="text-sm font-black text-brand-red tracking-widest mb-6 flex items-center gap-2">
+                         <User size={18} /> Asignar prospecto
                        </h3>
-                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Buscar Lead Activo</label>
+                      <label className="block text-[10px] font-black text-slate-500 tracking-widest mb-3">Buscar Lead Activo</label>
                       <select 
                         required
                         className="input-field py-4 text-lg bg-white/5 border-white/10"
@@ -442,7 +442,7 @@ const QuotesPage = () => {
                     </div>
                     <div className="space-y-6">
                       <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Número de Personas (PAX)</label>
+                        <label className="block text-[10px] font-black text-slate-500 tracking-widest mb-3">Número de Personas (PAX)</label>
                         <div className="relative">
                            <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-red opacity-50" size={20} />
                            <input 
@@ -456,7 +456,7 @@ const QuotesPage = () => {
                     </div>
                     <div className="space-y-6">
                       <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Tipo de Evento</label>
+                        <label className="block text-[10px] font-black text-slate-500 tracking-widest mb-3">Tipo de Evento</label>
                         <div className="relative">
                            <Package className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-red opacity-50" size={20} />
                            <input 
@@ -481,8 +481,8 @@ const QuotesPage = () => {
                 {step === 2 && (
                   <div className="space-y-10 animate-in fade-in slide-in-from-right-10 duration-500">
                     <div>
-                      <h3 className="text-sm font-black text-brand-red uppercase tracking-widest mb-6 flex items-center gap-2">
-                         <Package size={18} /> SELECCIONA TU PAQUETE
+                      <h3 className="text-sm font-black text-brand-red tracking-widest mb-6 flex items-center gap-2">
+                         <Package size={18} /> Selecciona tu paquete
                        </h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {PACKAGES.map((pkg) => (
@@ -497,10 +497,10 @@ const QuotesPage = () => {
                             `}
                           >
                             <div className="flex justify-between items-start mb-4">
-                               <h4 className="font-black text-white italic text-lg uppercase tracking-tight">{pkg.nombre}</h4>
+                               <h4 className="font-black text-white text-lg tracking-tight">{pkg.nombre}</h4>
                                {formData.paquete_id === pkg.id && <CheckCircle className="text-brand-red" size={20} />}
                             </div>
-                            <p className="text-3xl font-black text-brand-red mb-6 italic">${pkg.precio_persona}<span className="text-[10px] text-slate-500 font-bold uppercase ml-1 tracking-widest">/ pax</span></p>
+                            <p className="text-3xl font-black text-brand-red mb-6">${pkg.precio_persona}<span className="text-[10px] text-slate-500 font-bold ml-1 tracking-widest">/ pax</span></p>
                             <ul className="space-y-2">
                               {pkg.items.map((item, i) => (
                                 <li key={i} className="text-[11px] font-bold text-slate-400 flex items-center gap-3">
@@ -516,8 +516,8 @@ const QuotesPage = () => {
 
                     {/* EXTRAS SECTION */}
                     <div>
-                      <h3 className="text-sm font-black text-brand-red uppercase tracking-widest mb-6 flex items-center gap-2">
-                         <PlusCircle size={18} /> SERVICIOS ADICIONALES (EXTRAS FIJOS)
+                      <h3 className="text-sm font-black text-brand-red tracking-widest mb-6 flex items-center gap-2">
+                         <PlusCircle size={18} /> Servicios adicionales (extras fijos)
                        </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                          {EXTRA_SERVICES.map((extra) => {
@@ -536,7 +536,7 @@ const QuotesPage = () => {
                                <div className="flex items-center gap-3">
                                  <span className="text-2xl">{extra.icono}</span>
                                  <div>
-                                   <div className="text-[11px] font-black text-white uppercase tracking-tight leading-tight">{extra.nombre}</div>
+                                   <div className="text-[11px] font-black text-white tracking-tight leading-tight">{extra.nombre}</div>
                                    <div className="text-[10px] font-bold text-emerald-400 mt-0.5">${extra.precio.toLocaleString()}</div>
                                  </div>
                                </div>
@@ -548,7 +548,7 @@ const QuotesPage = () => {
                     </div>
 
                     <div className="flex justify-between items-center mt-12 pt-8 border-t border-white/5">
-                       <button type="button" onClick={() => setStep(1)} className="btn-secondary rounded-xl px-8 font-black uppercase tracking-widest text-xs">Regresar</button>
+                       <button type="button" onClick={() => setStep(1)} className="btn-secondary rounded-xl px-8 font-black tracking-widest text-xs">Regresar</button>
                        <button type="button" onClick={() => setStep(3)} className="btn-primary rounded-xl px-12 py-4 shadow-xl">
                         Resumen Final
                         <ChevronRight size={20} />
@@ -562,12 +562,12 @@ const QuotesPage = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-in fade-in slide-in-from-right-10 duration-500">
                     <div className="space-y-6">
                        <div className="glass p-8 border-l-4 border-l-emerald-500 bg-white/[0.02]">
-                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 px-1">Conceptos de Venta</h4>
+                          <h4 className="text-[10px] font-black text-slate-500 tracking-widest mb-6 px-1">Conceptos de Venta</h4>
                           <div className="space-y-4">
                             <div className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
                                <div className="flex flex-col">
-                                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Paquete Base</span>
-                                 <span className="text-white font-black italic uppercase text-sm tracking-tight">{PACKAGES.find(p => p.id === formData.paquete_id)?.nombre || 'Seleccione un paquete'}</span>
+                                 <span className="text-[8px] font-black text-slate-500 tracking-widest">Paquete Base</span>
+                                 <span className="text-white font-black text-sm tracking-tight">{PACKAGES.find(p => p.id === formData.paquete_id)?.nombre || 'Seleccione un paquete'}</span>
                                </div>
                                <span className="text-brand-red font-black text-lg">${((PACKAGES.find(p => p.id === formData.paquete_id)?.precio_persona || 0) * formData.numero_personas).toLocaleString()}</span>
                             </div>
@@ -576,7 +576,7 @@ const QuotesPage = () => {
                             {formData.servicios_adicionales.map((extra) => (
                               <div key={extra.id} className="flex justify-between items-center bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/10">
                                  <div className="flex flex-col">
-                                   <span className="text-[8px] font-black text-emerald-500/70 uppercase tracking-widest">Servicio Extra</span>
+                                   <span className="text-[8px] font-black text-emerald-500/70 tracking-widest">Servicio Extra</span>
                                    <span className="text-slate-200 font-bold text-xs">{extra.nombre}</span>
                                  </div>
                                  <span className="text-emerald-400 font-black text-sm">${extra.precio.toLocaleString()}</span>
@@ -584,7 +584,7 @@ const QuotesPage = () => {
                             ))}
 
                             <div className="pt-6 mt-6 border-t border-white/10">
-                               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">🏷️ APLICAR DESCUENTO GLOBAL ($)</label>
+                               <label className="block text-[10px] font-black text-slate-500 tracking-[0.2em] mb-3">🏷️ Aplicar descuento global ($)</label>
                                <input 
                                   type="number"
                                   className="input-field py-3 text-lg font-black text-rose-400 bg-white/5 border-white/10"
@@ -598,7 +598,7 @@ const QuotesPage = () => {
                        <div className="glass p-6 text-slate-400">
                          <div className="flex items-start gap-3">
                            <AlertCircle className="text-amber-500 shrink-0" size={18} />
-                           <p className="text-[10px] font-medium leading-relaxed italic">Esta cotización tiene una validez de 15 días. Los precios incluyen montaje básico.</p>
+                           <p className="text-[10px] font-medium leading-relaxed">Esta cotización tiene una validez de 15 días. Los precios incluyen montaje básico.</p>
                          </div>
                        </div>
                     </div>
@@ -609,15 +609,15 @@ const QuotesPage = () => {
                        <div className="absolute bottom-[-50px] left-[-50px] w-48 h-48 bg-black/20 rounded-full blur-2xl opacity-20"></div>
 
                        <div className="space-y-6 relative z-10">
-                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-80 border-b border-white/20 pb-4">Desglose Financiero</h4>
+                          <h4 className="text-[10px] font-black tracking-[0.3em] opacity-80 border-b border-white/20 pb-4">Desglose Financiero</h4>
                           <div className="space-y-3">
                              <div className="flex justify-between font-bold text-lg opacity-90 tracking-tight">
                                 <span>Subtotal:</span>
                                 <span>${formData.subtotal.toLocaleString()}</span>
                              </div>
                              <div className="pt-8 mt-5 border-t border-white/30 flex flex-col items-end">
-                                <span className="text-[11px] font-black uppercase tracking-[0.4em] opacity-60 mb-2">Inversión Final</span>
-                                <span className="text-6xl font-black italic tracking-tighter leading-tight drop-shadow-2xl">
+                                <span className="text-[11px] font-black tracking-[0.4em] opacity-60 mb-2">Inversión Final</span>
+                                <span className="text-6xl font-black tracking-tighter leading-tight drop-shadow-2xl">
                                   ${formData.total.toLocaleString()}
                                 </span>
                              </div>
@@ -625,10 +625,10 @@ const QuotesPage = () => {
                        </div>
 
                        <div className="mt-12 flex gap-4 relative z-10">
-                          <button type="button" onClick={() => setStep(2)} className="w-1/4 py-4 border-2 border-white/20 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-colors">Atrás</button>
-                          <button type="submit" className="flex-1 py-4 bg-white text-brand-red rounded-2xl font-black uppercase tracking-[0.1em] hover:bg-slate-100 transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-3">
+                          <button type="button" onClick={() => setStep(2)} className="w-1/4 py-4 border-2 border-white/20 rounded-2xl font-black tracking-widest text-[10px] hover:bg-white/10 transition-colors">Atrás</button>
+                          <button type="submit" className="flex-1 py-4 bg-white text-brand-red rounded-2xl font-black tracking-[0.1em] hover:bg-slate-100 transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-3">
                             <Save size={24} className="stroke-[3px]" />
-                            GENERAR COTIZACIÓN
+                            Generar cotización
                           </button>
                        </div>
                     </div>
