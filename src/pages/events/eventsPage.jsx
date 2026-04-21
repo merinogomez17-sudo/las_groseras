@@ -61,10 +61,24 @@ const EventsPage = () => {
   const fetchBeers = async () => {
     const { data } = await supabase
       .from('inventario')
-      .select('id, nombre')
+      .select('id, nombre, producto_base')
       .in('categoria', ['Cerveza', 'Cervezas'])
       .order('nombre');
-    setAvailableBeers(data || []);
+    
+    // Filtrar para tener solo una opción por producto base
+    const rawBeers = data || [];
+    const uniqueBeers = [];
+    const seenNames = new Set();
+    
+    rawBeers.forEach(beer => {
+      const name = beer.producto_base || beer.nombre;
+      if (!seenNames.has(name)) {
+        uniqueBeers.push({ ...beer, displayName: name });
+        seenNames.add(name);
+      }
+    });
+
+    setAvailableBeers(uniqueBeers);
   };
 
   const handleShareLink = (eventId) => {
@@ -465,13 +479,13 @@ const EventsPage = () => {
                     {availableBeers.map(beer => (
                       <button 
                         key={beer.id}
-                        onClick={() => handleToggleBeer(beer.nombre)}
-                        className={`p-4 rounded-2xl border transition-all text-left group relative ${selectedBeers.includes(beer.nombre) ? 'bg-brand-red border-brand-red shadow-lg shadow-brand-red/20' : 'bg-white/5 border-white/5 hover:border-brand-red/30'}`}
+                        onClick={() => handleToggleBeer(beer.displayName)}
+                        className={`p-4 rounded-2xl border transition-all text-left group relative ${selectedBeers.includes(beer.displayName) ? 'bg-brand-red border-brand-red shadow-lg shadow-brand-red/20' : 'bg-white/5 border-white/5 hover:border-brand-red/30'}`}
                       >
-                        <div className={`font-black text-xs uppercase italic tracking-tight ${selectedBeers.includes(beer.nombre) ? 'text-white' : 'text-slate-200'}`}>
-                          {beer.nombre}
+                        <div className={`font-black text-xs uppercase italic tracking-tight ${selectedBeers.includes(beer.displayName) ? 'text-white' : 'text-slate-200'}`}>
+                          {beer.displayName}
                         </div>
-                        {selectedBeers.includes(beer.nombre) && (
+                        {selectedBeers.includes(beer.displayName) && (
                           <CheckCircle size={16} className="absolute top-2 right-2 text-white" />
                         )}
                       </button>
