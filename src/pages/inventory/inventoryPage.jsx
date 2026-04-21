@@ -620,7 +620,8 @@ const InventoryPage = () => {
                   <ul className="text-[10px] text-slate-500 space-y-2 font-bold leading-relaxed">
                     <li>• El archivo debe estar en formato <span className="text-white">.CSV</span></li>
                     <li>• No cambies el nombre de las columnas del layout.</li>
-                    <li>• Si el nombre del insumo ya existe, se <span className="text-emerald-400">ACTUALIZARÁN</span> sus datos.</li>
+                    <li>• El sistema autogenera el nombre técnico combinando el <span className="text-white">Producto Base</span> y su <span className="text-white">Formato</span>.</li>
+                    <li>• Si la combinación de nombre y formato ya existe, se <span className="text-emerald-400">ACTUALIZARÁN</span> sus datos automáticamente.</li>
                     <li>• Los campos vacíos tomarán valores por defecto.</li>
                   </ul>
                 </div>
