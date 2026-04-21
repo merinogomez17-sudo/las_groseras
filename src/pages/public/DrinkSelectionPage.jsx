@@ -36,7 +36,8 @@ const DrinkSelectionPage = () => {
         .select(`
           *,
           clientes (nombre_completo),
-          cotizaciones (paquetes_incluidos)
+          cotizaciones (paquetes_incluidos),
+          evento_productos (id, receta_id)
         `)
         .eq('id', eventId)
         .single();
@@ -44,19 +45,28 @@ const DrinkSelectionPage = () => {
       if (error) throw error;
       setEvent(data);
       
-      // If event is already finalized or locked, handle that here
-      if (data.estado === 'finalizado') {
-        setSubmitted(true);
-      }
-
-      // Load existing selection
+      // Load existing selection if any
       if (data.cervezas_seleccionadas) {
         setSelectedBeers(data.cervezas_seleccionadas);
       }
 
-      // Pre-select basic micheladas
-      const basics = availableRecipes.filter(r => r.categoria === 'Basica').map(r => r.id);
-      setSelectedRecipes(prev => Array.from(new Set([...prev, ...basics])));
+      if (data.evento_productos && data.evento_productos.length > 0) {
+        setSelectedRecipes(data.evento_productos.map(p => p.receta_id));
+      }
+
+      // If event is already finalized or already has selections, lock the form
+      const hasSelections = (data.cervezas_seleccionadas && data.cervezas_seleccionadas.length > 0) || 
+                           (data.evento_productos && data.evento_productos.length > 0);
+
+      if (data.estado === 'finalizado' || hasSelections) {
+        setSubmitted(true);
+      }
+
+      // Pre-select basic micheladas if not already submitted
+      if (!hasSelections && data.estado !== 'finalizado') {
+        const basics = availableRecipes.filter(r => r.categoria === 'Basica').map(r => r.id);
+        setSelectedRecipes(prev => Array.from(new Set([...prev, ...basics])));
+      }
     } catch (error) {
       toast.error('Error al cargar la selección: ' + error.message);
     } finally {
