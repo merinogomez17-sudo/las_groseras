@@ -10,6 +10,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { PACKAGE_LIMITS, CATEGORY_LABELS, normalizePkgId } from '../../utils/eventUtils';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import ShoppingListPDF from '../../components/inventory/ShoppingListPDF';
 
 const EventsPage = () => {
   const [events, setEvents] = useState([]);
@@ -17,6 +19,8 @@ const EventsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
+  const [deficitItems, setDeficitItems] = useState([]);
+  const [isDeficitModalOpen, setIsDeficitModalOpen] = useState(false);
   
   // States for recipe selection
   const [availableRecipes, setAvailableRecipes] = useState([]);
@@ -206,8 +210,23 @@ const EventsPage = () => {
       });
 
       // 3. Crear movimientos de inventario y actualizar stock
+      const deficit = [];
+      const { data: inventoryData } = await supabase.from('inventario').select('*');
+
       for (const insumoId in totals) {
         const qty = totals[insumoId];
+        const currentItem = inventoryData?.find(i => i.id === insumoId);
+        const currentStock = currentItem?.cantidad_actual || 0;
+
+        // Registrar déficit si no hay suficiente stock
+        if (qty > currentStock) {
+          deficit.push({
+            nombre: currentItem?.nombre || 'Insumo desconocido',
+            faltante: qty - currentStock,
+            unidad: currentItem?.unidad || 'Pzas',
+            proveedor: currentItem?.proveedor || 'No definido'
+          });
+        }
         
         // Registrar salida
         await supabase.from('movimientos_inventario').insert({
@@ -218,22 +237,24 @@ const EventsPage = () => {
         });
 
         // Actualizar stock principal
-        const { data: currentItem } = await supabase
-          .from('inventario')
-          .select('cantidad_actual')
-          .eq('id', insumoId)
-          .single();
-        
         await supabase
           .from('inventario')
-          .update({ cantidad_actual: (currentItem?.cantidad_actual || 0) - qty })
+          .update({ cantidad_actual: currentStock - qty })
           .eq('id', insumoId);
       }
 
       // 4. Marcar evento como finalizado
       await supabase.from('eventos').update({ estado: 'finalizado' }).eq('id', event.id);
 
-      toast.success('¡Inventario actualizado y evento finalizado!', { id: loadingToast });
+      if (deficit.length > 0) {
+        setDeficitItems(deficit);
+        setIsDeficitModalOpen(true);
+        toast.warning('¡Inventario actualizado! Se detectaron faltantes. Generando lista de compras...');
+      } else {
+        toast.success('¡Inventario actualizado y evento finalizado!', { id: loadingToast });
+      }
+      
+      setSelectedEvent(event); // Guardar el evento actual para el PDF
       fetchEvents();
     } catch (err) {
       toast.error('Error al procesar: ' + err.message, { id: loadingToast });
@@ -554,6 +575,60 @@ const EventsPage = () => {
                        <Save size={18} /> Guardar Selección
                     </button>
                  </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* DEFICIT / SHOPPING LIST MODAL */}
+      <AnimatePresence>
+        {isDeficitModalOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="glass max-w-lg w-full p-10 text-center relative border-t-4 border-brand-red"
+            >
+              <div className="w-20 h-20 bg-brand-red/20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <ShoppingBag size={40} className="text-brand-red" />
+              </div>
+              <h2 className="text-4xl font-black text-white italic tracking-tighter mb-4 uppercase">¡STOCK INSUFICIENTE!</h2>
+              <p className="text-slate-400 mb-8 leading-relaxed">
+                El evento ha sido finalizado, pero algunos insumos se han agotado. Hemos generado una **Lista de Compras** con lo que hace falta.
+              </p>
+              
+              <div className="space-y-4 mb-10">
+                 {deficitItems.slice(0, 3).map((item, idx) => (
+                   <div key={idx} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
+                      <span className="text-[10px] font-black text-slate-300 uppercase">{item.nombre}</span>
+                      <span className="text-xs font-black text-brand-red italic">-{item.faltante.toFixed(1)} {item.unidad}</span>
+                   </div>
+                 ))}
+                 {deficitItems.length > 3 && (
+                   <p className="text-[10px] text-slate-500 font-bold uppercase italic">... y {deficitItems.length - 3} productos más</p>
+                 )}
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <PDFDownloadLink 
+                  document={<ShoppingListPDF event={selectedEvent} items={deficitItems} />} 
+                  fileName={`Lista_Compras_${selectedEvent?.nombre_evento.replace(/\s+/g, '_')}.pdf`}
+                  className="btn-primary w-full py-4 group"
+                >
+                  {({ loading }) => (
+                    <div className="flex items-center justify-center gap-3">
+                      <Save size={20} />
+                      <span className="font-black italic text-lg">{loading ? 'GENERANDO PDF...' : 'DESCARGAR LISTA DE COMPRAS'}</span>
+                    </div>
+                  )}
+                </PDFDownloadLink>
+                
+                <button 
+                  onClick={() => setIsDeficitModalOpen(false)}
+                  className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors"
+                >
+                  Cerrar Ventana
+                </button>
               </div>
             </motion.div>
           </div>
