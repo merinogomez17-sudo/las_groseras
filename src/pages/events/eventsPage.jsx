@@ -9,7 +9,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
-import { PACKAGE_LIMITS, CATEGORY_LABELS, normalizePkgId } from '../../utils/eventUtils';
+import { PACKAGE_LIMITS, CATEGORY_LABELS, normalizePkgId, getEventLimits } from '../../utils/eventUtils';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import ShoppingListPDF from '../../components/inventory/ShoppingListPDF';
 
@@ -115,10 +115,7 @@ const EventsPage = () => {
   };
 
   const handleToggleRecipe = (id, category) => {
-    // Intentar obtener ID desde el evento, y si no, desde la cotización vinculada
-    const pkgRaw = selectedEvent.paquete_contratado || selectedEvent.cotizaciones?.paquetes_incluidos?.[0]?.id || '';
-    const pkgKey = normalizePkgId(pkgRaw);
-    const limits = PACKAGE_LIMITS[pkgKey] || {};
+    const limits = getEventLimits(selectedEvent);
     const limit = limits[category];
     
     if (selectedRecipes.includes(id)) {
@@ -346,7 +343,7 @@ const EventsPage = () => {
               <div className="flex-1 space-y-4">
                 <div className="flex items-center gap-2">
                   <span className={`px-3 py-1 rounded text-[10px] font-black tracking-widest ${event.estado === 'finalizado' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-brand-red/10 text-brand-red'}`}>
-                    {event.estado}
+                    {event.estado === 'finalizado' ? 'Confirmado' : event.estado}
                   </span>
                   <span className="text-[10px] font-black text-slate-500 tracking-widest bg-white/5 px-2 py-1 rounded">
                     {event.cotizaciones?.numero_cotizacion || 'S/N'}
@@ -515,12 +512,13 @@ const EventsPage = () => {
                 </div>
 
                 {Object.keys(CATEGORY_LABELS).map(cat => {
-                  const pkgRaw = selectedEvent.paquete_contratado || selectedEvent.cotizaciones?.paquetes_incluidos?.[0]?.id || '';
-                  const pkgKey = normalizePkgId(pkgRaw);
-                  const limits = PACKAGE_LIMITS[pkgKey] || {};
+                  const limits = getEventLimits(selectedEvent);
                   const limit = limits[cat];
                   const currentSelected = availableRecipes.filter(r => r.categoria === cat && selectedRecipes.includes(r.id)).length;
-                  const isAvailable = cat === 'Basica' || limit > 0 || !pkgKey;
+                  
+                  const pkgData = selectedEvent.cotizaciones?.paquetes_incluidos?.[0] || {};
+                  const pkgId = normalizePkgId(selectedEvent.paquete_contratado || pkgData.id || '');
+                  const isAvailable = cat === 'Basica' || limit > 0 || !pkgId;
 
                   return (
                     <div key={cat} className={!isAvailable ? 'opacity-40 grayscale' : ''}>

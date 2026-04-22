@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
-import { PACKAGE_LIMITS, CATEGORY_LABELS, normalizePkgId } from '../../utils/eventUtils';
+import { PACKAGE_LIMITS, CATEGORY_LABELS, normalizePkgId, getEventLimits } from '../../utils/eventUtils';
 
 const DrinkSelectionPage = () => {
   const { eventId } = useParams();
@@ -115,9 +115,7 @@ const DrinkSelectionPage = () => {
   };
 
   const handleToggleRecipe = (id, category) => {
-    const pkgRaw = event.paquete_contratado || event.cotizaciones?.paquetes_incluidos?.[0]?.id || '';
-    const pkgKey = normalizePkgId(pkgRaw);
-    const limits = PACKAGE_LIMITS[pkgKey] || {};
+    const limits = getEventLimits(event);
     const limit = limits[category];
     
     if (selectedRecipes.includes(id)) {
@@ -328,12 +326,13 @@ const DrinkSelectionPage = () => {
         {/* Categories Loop */}
         <div className="space-y-12 mb-20">
           {Object.keys(CATEGORY_LABELS).map(cat => {
-            const pkgRaw = event?.paquete_contratado || event?.cotizaciones?.paquetes_incluidos?.[0]?.id || '';
-            const pkgKey = normalizePkgId(pkgRaw);
-            const limits = PACKAGE_LIMITS[pkgKey] || {};
+            const limits = getEventLimits(event);
             const limit = limits[cat];
             const currentSelected = availableRecipes.filter(r => r.categoria === cat && selectedRecipes.includes(r.id)).length;
-            const isAvailable = cat === 'Basica' || limit > 0 || !pkgKey;
+            
+            const pkgData = event?.cotizaciones?.paquetes_incluidos?.[0] || {};
+            const pkgId = normalizePkgId(event?.paquete_contratado || pkgData.id || '');
+            const isAvailable = cat === 'Basica' || limit > 0 || !pkgId;
 
             if (!isAvailable) return null;
 

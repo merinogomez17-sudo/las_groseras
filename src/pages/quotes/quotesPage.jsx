@@ -173,7 +173,13 @@ const QuotesPage = () => {
         paquetes_incluidos: [{
           ...selectedPkg,
           items: finalItems,
-          precio_persona: precioFinal
+          precio_persona: precioFinal,
+          // Guardamos los límites numéricos para que las páginas de selección los puedan leer
+          limites_personalizados: paquete_id === 'personalizada' ? {
+            'Cerveza con sabor': personalizado_sabores,
+            'Bebida especial': personalizado_tragos,
+            'Cerveza especial': personalizado_cervezas
+          } : null
         }],
         precio_por_persona: precioFinal,
         numero_cotizacion: `COT-${Date.now().toString().slice(-4)}`,

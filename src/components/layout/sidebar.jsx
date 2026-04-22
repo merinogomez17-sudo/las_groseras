@@ -98,6 +98,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile, isMobileOpen, setIsMob
           <NavLink
             key={item.path}
             to={item.path}
+            end={item.path === '/admin/'}
             onClick={() => isMobile && setIsMobileOpen(false)}
             className={({ isActive }) => `
               flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 relative group
