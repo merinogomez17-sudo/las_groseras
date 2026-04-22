@@ -158,7 +158,9 @@ const QuotePDF = ({ quote }) => {
           <Text style={styles.sectionTitle}>Detalles del Cliente</Text>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Cliente / Evento:</Text>
-            <Text style={styles.infoValue}>{quote.leads?.nombre_contacto || 'Cliente Directo'}</Text>
+            <Text style={styles.infoValue}>
+              {quote.clientes?.nombre_completo || quote.leads?.nombre_contacto || 'Cliente Directo'}
+            </Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Tipo de Evento:</Text>
@@ -231,7 +233,8 @@ const QuotePDF = ({ quote }) => {
            <Text style={{ fontSize: 8, color: '#64748b', lineHeight: 1.5 }}>
              * Esta cotización tiene una validez hasta el {validUntilStr}.{'\n'}
              * Reserva de fecha con el 50% de anticipo.{'\n'}
-             * Los precios incluyen montaje y servicio de barra libre según el tiempo estipulado.
+             * Los precios incluyen montaje y servicio de barra libre según el tiempo estipulado.{'\n'}
+             * El precio no incluye IVA, si se solicita factura se cobrara el 16%.
            </Text>
         </View>
 

@@ -97,7 +97,8 @@ const QuotesPage = () => {
         .from('cotizaciones')
         .select(`
           *,
-          leads (nombre_contacto, email, telefono, cliente_id)
+          leads (nombre_contacto, email, telefono, cliente_id),
+          clientes (nombre_completo)
         `)
         .order('created_at', { ascending: false });
       if (error) throw error;
