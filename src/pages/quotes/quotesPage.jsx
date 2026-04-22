@@ -41,6 +41,12 @@ const PACKAGES = [
     precio_persona: 330, 
     items: ['Barra libre Micheladas (Clásica/Cubana/Clamato)', '5 Sabores de michelada', '3 Tragos especiales', '3 Cervezas especiales', 'Vasos personalizados con stickers', '4 Horas de Servicio'] 
   },
+  { 
+    id: 'personalizada', 
+    nombre: 'Barra Personalizada', 
+    precio_persona: 0, 
+    items: ['Servicio configurado 100% a la medida', 'Selección de elementos según acuerdo con el cliente'] 
+  },
 ];
 
 const EXTRA_SERVICES = [
@@ -65,6 +71,12 @@ const QuotesPage = () => {
     numero_personas: 50,
     tipo_evento: '',
     paquete_id: 'bien_portado',
+    precio_personalizado: 0,
+    personalizado_barra_libre: true,
+    personalizado_sabores: 2,
+    personalizado_tragos: 0,
+    personalizado_cervezas: 0,
+    personalizado_horas: 2,
     servicios_adicionales: [], // Array de {id, nombre, precio}
     descuento: 0,
     subtotal: 0,
@@ -106,7 +118,8 @@ const QuotesPage = () => {
     const pkg = PACKAGES.find(p => p.id === formData.paquete_id);
     if (!pkg) return;
     
-    const subtotalPaquete = (pkg.precio_persona * formData.numero_personas);
+    const precioBase = formData.paquete_id === 'personalizada' ? Number(formData.precio_personalizado || 0) : pkg.precio_persona;
+    const subtotalPaquete = (precioBase * formData.numero_personas);
     const subtotalExtras = formData.servicios_adicionales.reduce((acc, curr) => acc + curr.precio, 0);
     
     const subtotal = (subtotalPaquete + subtotalExtras) - formData.descuento;
@@ -116,7 +129,7 @@ const QuotesPage = () => {
 
   useEffect(() => {
     calculateTotal();
-  }, [formData.paquete_id, formData.numero_personas, formData.descuento, formData.servicios_adicionales]);
+  }, [formData.paquete_id, formData.numero_personas, formData.descuento, formData.servicios_adicionales, formData.precio_personalizado]);
 
   const toggleExtra = (extra) => {
     setFormData(prev => {
@@ -141,12 +154,28 @@ const QuotesPage = () => {
     
     try {
       const selectedPkg = PACKAGES.find(p => p.id === formData.paquete_id);
-      const { paquete_id, ...dbData } = formData;
+      const { paquete_id, precio_personalizado, personalizado_barra_libre, personalizado_sabores, personalizado_tragos, personalizado_cervezas, personalizado_horas, ...dbData } = formData;
+      const precioFinal = paquete_id === 'personalizada' ? Number(precio_personalizado || 0) : selectedPkg.precio_persona;
+      
+      let finalItems = selectedPkg.items;
+      if (paquete_id === 'personalizada') {
+        finalItems = [];
+        if (personalizado_barra_libre) finalItems.push('Barra libre Micheladas (Clásica/Cubana/Clamato)');
+        if (personalizado_sabores > 0) finalItems.push(`${personalizado_sabores} Sabores de michelada`);
+        if (personalizado_tragos > 0) finalItems.push(`${personalizado_tragos} ${personalizado_tragos === 1 ? 'Trago especial' : 'Tragos especiales'}`);
+        if (personalizado_cervezas > 0) finalItems.push(`${personalizado_cervezas} ${personalizado_cervezas === 1 ? 'Cerveza especial' : 'Cervezas especiales'}`);
+        if (personalizado_horas > 0) finalItems.push(`${personalizado_horas} Horas de Servicio`);
+        if (finalItems.length === 0) finalItems.push('Servicio configurado a la medida');
+      }
       
       const payload = {
         ...dbData,
-        paquetes_incluidos: [selectedPkg],
-        precio_por_persona: selectedPkg.precio_persona,
+        paquetes_incluidos: [{
+          ...selectedPkg,
+          items: finalItems,
+          precio_persona: precioFinal
+        }],
+        precio_por_persona: precioFinal,
         numero_cotizacion: `COT-${Date.now().toString().slice(-4)}`,
         estado: 'borrador'
       };
@@ -263,6 +292,12 @@ const QuotesPage = () => {
               numero_personas: 50,
               tipo_evento: '',
               paquete_id: 'bien_portado',
+              precio_personalizado: 0,
+              personalizado_barra_libre: true,
+              personalizado_sabores: 2,
+              personalizado_tragos: 0,
+              personalizado_cervezas: 0,
+              personalizado_horas: 2,
               servicios_adicionales: [],
               descuento: 0,
               subtotal: 0,
@@ -498,17 +533,69 @@ const QuotesPage = () => {
                           >
                             <div className="flex justify-between items-start mb-4">
                                <h4 className="font-black text-white text-lg tracking-tight">{pkg.nombre}</h4>
-                               {formData.paquete_id === pkg.id && <CheckCircle className="text-brand-red" size={20} />}
+                               {formData.paquete_id === pkg.id && <CheckCircle className="text-brand-red shrink-0" size={20} />}
                             </div>
-                            <p className="text-3xl font-black text-brand-red mb-6">${pkg.precio_persona}<span className="text-[10px] text-slate-500 font-bold ml-1 tracking-widest">/ pax</span></p>
-                            <ul className="space-y-2">
-                              {pkg.items.map((item, i) => (
-                                <li key={i} className="text-[11px] font-bold text-slate-400 flex items-center gap-3">
-                                  <div className={`w-1.5 h-1.5 rounded-full ${formData.paquete_id === pkg.id ? 'bg-brand-red' : 'bg-slate-700'}`} />
-                                  {item}
-                                </li>
-                              ))}
-                            </ul>
+                            
+                            {pkg.id === 'personalizada' ? (
+                              <div className="mb-6 pb-2 border-b border-brand-red/30" onClick={(e) => e.stopPropagation()}>
+                                <label className="text-[10px] font-black tracking-widest text-slate-500 block mb-2">FIJAR PRECIO POR PERSONA</label>
+                                <div className="flex items-center text-brand-red bg-white/5 border border-brand-red/20 px-3 py-1.5 rounded-lg w-full max-w-[140px] focus-within:border-brand-red focus-within:bg-brand-red/10 transition-colors">
+                                  <span className="text-xl font-black mr-1">$</span>
+                                  <input 
+                                    type="number"
+                                    className="bg-transparent outline-none flex-1 text-2xl font-black text-white w-full"
+                                    value={formData.precio_personalizado || ''}
+                                    placeholder="0"
+                                    onChange={(e) => setFormData({...formData, precio_personalizado: e.target.value})}
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-3xl font-black text-brand-red mb-6">${pkg.precio_persona}<span className="text-[10px] text-slate-500 font-bold ml-1 tracking-widest">/ pax</span></p>
+                            )}
+                            
+                            {pkg.id === 'personalizada' ? (
+                              <div className="space-y-3 mt-4" onClick={(e) => e.stopPropagation()}>
+                                <label className="flex items-center gap-2 cursor-pointer text-[12px] font-black text-white hover:text-brand-red transition-colors">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={formData.personalizado_barra_libre}
+                                    onChange={(e) => setFormData({...formData, personalizado_barra_libre: e.target.checked})}
+                                    className="accent-brand-red w-4 h-4 cursor-pointer"
+                                  />
+                                  Barra libre Micheladas
+                                </label>
+                                
+                                <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 bg-black/20 p-2 rounded-lg border border-white/5">
+                                  <span>Sabores de micheladas</span>
+                                  <input type="number" min="0" max="10" value={formData.personalizado_sabores} onChange={e=>setFormData({...formData, personalizado_sabores: Number(e.target.value)})} className="w-14 bg-white/5 p-1 text-center rounded border border-white/10 text-white outline-none focus:border-brand-red" />
+                                </div>
+                                
+                                <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 bg-black/20 p-2 rounded-lg border border-white/5">
+                                  <span>Tragos especiales</span>
+                                  <input type="number" min="0" max="10" value={formData.personalizado_tragos} onChange={e=>setFormData({...formData, personalizado_tragos: Number(e.target.value)})} className="w-14 bg-white/5 p-1 text-center rounded border border-white/10 text-white outline-none focus:border-brand-red" />
+                                </div>
+                                
+                                <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 bg-black/20 p-2 rounded-lg border border-white/5">
+                                  <span>Cervezas especiales</span>
+                                  <input type="number" min="0" max="20" value={formData.personalizado_cervezas} onChange={e=>setFormData({...formData, personalizado_cervezas: Number(e.target.value)})} className="w-14 bg-white/5 p-1 text-center rounded border border-white/10 text-white outline-none focus:border-brand-red" />
+                                </div>
+                                
+                                <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 bg-black/20 p-2 rounded-lg border border-white/5">
+                                  <span>Horas de servicio</span>
+                                  <input type="number" min="1" max="12" value={formData.personalizado_horas} onChange={e=>setFormData({...formData, personalizado_horas: Number(e.target.value)})} className="w-14 bg-brand-red/10 p-1 text-center rounded border border-brand-red/30 text-white outline-none focus:border-brand-red" />
+                                </div>
+                              </div>
+                            ) : (
+                              <ul className="space-y-2">
+                                {pkg.items.map((item, i) => (
+                                  <li key={i} className="text-[11px] font-bold text-slate-400 flex items-center gap-3">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${formData.paquete_id === pkg.id ? 'bg-brand-red' : 'bg-slate-700'}`} />
+                                    {item}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -569,7 +656,9 @@ const QuotesPage = () => {
                                  <span className="text-[8px] font-black text-slate-500 tracking-widest">Paquete Base</span>
                                  <span className="text-white font-black text-sm tracking-tight">{PACKAGES.find(p => p.id === formData.paquete_id)?.nombre || 'Seleccione un paquete'}</span>
                                </div>
-                               <span className="text-brand-red font-black text-lg">${((PACKAGES.find(p => p.id === formData.paquete_id)?.precio_persona || 0) * formData.numero_personas).toLocaleString()}</span>
+                               <span className="text-brand-red font-black text-lg">
+                                 ${((formData.paquete_id === 'personalizada' ? Number(formData.precio_personalizado || 0) : PACKAGES.find(p => p.id === formData.paquete_id)?.precio_persona) * formData.numero_personas).toLocaleString()}
+                               </span>
                             </div>
 
                             {/* EXTRAS LIST */}
