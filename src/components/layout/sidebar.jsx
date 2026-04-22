@@ -16,14 +16,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile, isMobileOpen, setIsMobileOpen }) => {
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: Package, label: 'Inventario', path: '/inventario' },
-    { icon: Users, label: 'Clientes', path: '/clientes' },
-    { icon: Target, label: 'Leads', path: '/leads' },
-    { icon: BookOpen, label: 'Costos', path: '/recetas' },
-    { icon: FileText, label: 'Cotizaciones', path: '/cotizaciones' },
-    { icon: Calendar, label: 'Eventos', path: '/eventos' },
-    { icon: SettingsIcon, label: 'Configuración', path: '/configuracion' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/' },
+    { icon: Package, label: 'Inventario', path: '/admin/inventario' },
+    { icon: Users, label: 'Clientes', path: '/admin/clientes' },
+    { icon: Target, label: 'Leads', path: '/admin/leads' },
+    { icon: BookOpen, label: 'Costos', path: '/admin/recetas' },
+    { icon: FileText, label: 'Cotizaciones', path: '/admin/cotizaciones' },
+    { icon: Calendar, label: 'Eventos', path: '/admin/eventos' },
+    { icon: SettingsIcon, label: 'Configuración', path: '/admin/configuracion' },
   ];
 
   const sidebarVariants = {
@@ -149,7 +149,12 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile, isMobileOpen, setIsMob
 
       {/* Footer / Logout */}
       <div className={`pt-2 w-full ${isCollapsed ? 'flex justify-center' : ''}`}>
-        <button className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 relative group ${isCollapsed ? 'justify-center px-0' : 'w-full'}`}
+        <button 
+          onClick={() => {
+            sessionStorage.removeItem('lg_admin_auth');
+            window.location.href = '/admin';
+          }}
+          className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 relative group ${isCollapsed ? 'justify-center px-0' : 'w-full'}`}
           style={{ color: 'rgba(247,235,215,0.35)', border: '1px solid transparent' }}
           onMouseEnter={e => { e.currentTarget.style.color = '#40b3ac'; e.currentTarget.style.background = 'rgba(64,179,172,0.1)'; e.currentTarget.style.borderColor = 'rgba(64,179,172,0.2)'; }}
           onMouseLeave={e => { e.currentTarget.style.color = 'rgba(247,235,215,0.35)'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; }}

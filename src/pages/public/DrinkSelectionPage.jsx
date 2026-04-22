@@ -186,7 +186,7 @@ const DrinkSelectionPage = () => {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-brand-dark flex items-center justify-center p-6 bg-[url('https://images.unsplash.com/photo-1470337458703-46ad1756a187?auto=format&fit=crop&q=80&w=2069')] bg-cover bg-center">
+      <div className="min-h-screen bg-brand-dark flex items-center justify-center p-6">
         <div className="absolute inset-0 bg-brand-dark/95 backdrop-blur-md"></div>
         <motion.div 
           initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
@@ -216,7 +216,7 @@ const DrinkSelectionPage = () => {
   return (
     <div className="min-h-screen bg-brand-dark font-sans selection:bg-brand-red/30">
       {/* Background Decor */}
-      <div className="fixed inset-0 bg-[url('https://images.unsplash.com/photo-1541533848490-bc8115cd6522?auto=format&fit=crop&q=80&w=2069')] bg-cover bg-fixed bg-center opacity-20 grayscale brightness-50"></div>
+      <div className="fixed inset-0 bg-brand-dark"></div>
       
       <div className="relative z-10 max-w-4xl mx-auto px-4 pt-12 pb-40">
         {/* Header Section */}

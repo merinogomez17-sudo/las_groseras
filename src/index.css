@@ -11,12 +11,13 @@
   }
 
   *, *::before, *::after {
-    font-family: 'Josefin Sans', sans-serif;
+    /* removed global font override to allow inheritance */
   }
 
   body {
     @apply bg-brand-dark text-brand-cream min-h-screen;
     font-size: 17px;
+    font-family: 'Josefin Sans', sans-serif;
     background-image: radial-gradient(ellipse at 20% 50%, rgba(254, 204, 48, 0.04) 0%, transparent 60%),
                       radial-gradient(ellipse at 80% 20%, rgba(64, 179, 172, 0.04) 0%, transparent 60%);
   }

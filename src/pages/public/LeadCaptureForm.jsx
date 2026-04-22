@@ -50,7 +50,7 @@ const LeadCaptureForm = () => {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-brand-dark flex items-center justify-center p-6 bg-[url('https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=2070')] bg-cover bg-center">
+      <div className="min-h-screen bg-brand-dark flex items-center justify-center p-6">
         <div className="absolute inset-0 bg-brand-dark/90 backdrop-blur-sm"></div>
         <motion.div 
           initial={{ scale: 0.9, opacity: 0 }}
@@ -78,7 +78,7 @@ const LeadCaptureForm = () => {
   return (
     <div className="min-h-screen bg-brand-dark font-sans selection:bg-brand-red/30">
       {/* Hero Background */}
-      <div className="fixed inset-0 bg-[url('https://images.unsplash.com/photo-1541533848490-bc8115cd6522?auto=format&fit=crop&q=80&w=2069')] bg-cover bg-center">
+      <div className="fixed inset-0">
         <div className="absolute inset-0 bg-gradient-to-b from-brand-dark/40 via-brand-dark/80 to-brand-dark"></div>
       </div>
 
