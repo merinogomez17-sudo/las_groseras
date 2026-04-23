@@ -55,7 +55,7 @@
     }
 
     nav img.logo {
-      height: 56px;
+      height: 72px;
       border-radius: 50%;
     }
 
@@ -69,7 +69,7 @@
       color: var(--text);
       text-decoration: none;
       font-weight: 700;
-      font-size: 14px;
+      font-size: 18px;
       letter-spacing: 1px;
       text-transform: uppercase;
       opacity: 0.8;
@@ -87,10 +87,10 @@
       gap: 8px;
       background: #25d366;
       color: #fff;
-      padding: 10px 20px;
+      padding: 12px 24px;
       border-radius: 50px;
       font-weight: 800;
-      font-size: 14px;
+      font-size: 18px;
       text-decoration: none;
       transition: transform .2s, box-shadow .2s;
       box-shadow: 0 0 20px rgba(37, 211, 102, 0.3);
@@ -142,7 +142,7 @@
       white-space: nowrap;
       line-height: 1;
       color: rgba(255, 255, 255, 0.08);
-      -webkit-text-stroke: 2px rgba(255, 255, 255, 0.75);
+      -webkit-text-stroke: 0;
       user-select: none;
       pointer-events: none;
       z-index: 1;
@@ -167,7 +167,7 @@
       max-width: 100%;
       height: auto;
       display: block;
-      filter: drop-shadow(0 30px 60px rgba(0, 0, 0, 0.85));
+      filter: drop-shadow(0 40px 120px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 80px rgba(0, 0, 0, 0.9));
     }
 
     /* Floor fade so drinks blend smoothly into page */
@@ -235,7 +235,7 @@
 
     h1.headline {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(36px, 4.5vw, 66px);
+      font-size: clamp(54px, 6.75vw, 99px);
       line-height: 0.95;
       letter-spacing: 1px;
       margin-bottom: 28px;
@@ -1021,30 +1021,43 @@
         display: none;
       }
 
+      /* Hero móvil: todo en una pantalla, layout vertical */
       #hero {
-        min-height: 160vh;
+        height: 100svh;
+        min-height: 580px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        overflow: hidden;
       }
 
+      /* Texto "Las Groseras" — arriba, más pequeño */
       .hero-bg-text {
-        font-size: 26vw;
-        top: 16vh;
+        font-size: 20vw;
+        top: 10px;
+        transform: translateX(-50%);
         -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.75);
       }
 
+      /* Imagen — ocupa el centro de la pantalla */
       .hero-drinks-wrap {
-        top: 52vh;
+        top: 28%;
         transform: translateY(-50%);
       }
 
       .hero-drinks-wrap img {
-        width: 105%;
-        margin-left: -2.5%;
+        width: 100%;
+        margin-left: 0;
       }
 
+      /* Copy — visible al fondo de la pantalla, sin scroll */
       .hero-copy {
+        position: relative;
+        margin-top: 0;
         grid-template-columns: 1fr;
-        padding: 0 20px 28px;
-        gap: 16px;
+        padding: 0 20px 24px;
+        gap: 12px;
+        z-index: 5;
       }
 
       .hero-copy-right {
@@ -1052,8 +1065,24 @@
       }
 
       h1.headline {
-        font-size: clamp(28px, 8vw, 44px);
-        margin-bottom: 16px;
+        font-size: clamp(26px, 7vw, 40px);
+        margin-bottom: 12px;
+      }
+
+      .hero-eyebrow {
+        font-size: 10px;
+        padding: 4px 12px;
+        margin-bottom: 10px;
+      }
+
+      .btn-primary {
+        font-size: 14px;
+        padding: 12px 22px;
+      }
+
+      .btn-secondary {
+        font-size: 13px;
+        padding: 10px 18px;
       }
 
       section {
@@ -1096,37 +1125,45 @@
 
     /* ── CELULAR PEQUEÑO (≤ 480px) ── */
     @media (max-width: 480px) {
+      #hero {
+        min-height: 520px;
+      }
+
       .hero-bg-text {
-        font-size: 28vw;
-        top: 14vh;
+        font-size: 18vw;
+        top: 6px;
         letter-spacing: 0;
       }
 
       .hero-drinks-wrap {
-        top: 50vh;
+        top: 32%;
       }
 
       .hero-drinks-wrap img {
-        width: 115%;
-        margin-left: -7.5%;
+        width: 100%;
+        margin-left: 0;
       }
 
       .hero-copy {
-        padding: 0 16px 24px;
+        padding: 0 16px 20px;
       }
 
       h1.headline {
-        font-size: clamp(26px, 9vw, 38px);
+        font-size: clamp(22px, 7.5vw, 34px);
+        margin-bottom: 10px;
       }
 
-      .hero-eyebrow {
-        font-size: 10px;
-        padding: 5px 12px;
+      .hero-actions {
+        gap: 8px;
       }
 
-      .btn-primary, .btn-secondary {
+      .btn-primary {
         font-size: 13px;
-        padding: 11px 20px;
+        padding: 10px 18px;
+      }
+
+      .btn-secondary {
+        display: none;
       }
     }
 
@@ -1271,17 +1308,6 @@
             Cotizar ahora
           </a>
           <a href="#paquetes" class="btn-secondary">Ver paquetes →</a>
-        </div>
-      </div>
-      <div class="hero-copy-right">
-        <p class="hero-sub">
-          Barra de <strong>micheladas y tragos</strong> para tu evento. Llevamos la fiesta hasta donde estés sin que
-          muevas un dedo.
-        </p>
-        <div class="hero-badges">
-          <div class="badge">📍 Edomex · CDMX · Morelos</div>
-          <div class="badge">🎉 Fiestas, bodas, corporativos</div>
-          <div class="badge">⭐ +100 eventos realizados</div>
         </div>
       </div>
     </div>
