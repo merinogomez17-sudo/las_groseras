@@ -10,6 +10,75 @@ import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 
 /**
+ * Componente Dropdown con Buscador Integrado
+ */
+const SearchableSelect = ({ options, value, onChange, placeholder }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  
+  const selectedOption = options.find(o => o.value === value);
+  const displayValue = selectedOption ? selectedOption.label : '';
+
+  const filteredOptions = options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div className="relative w-full">
+      <div 
+        className="w-full bg-slate-900 rounded-xl flex items-center px-3 py-3 cursor-text border border-white/5 focus-within:border-brand-red/50 transition-colors"
+        onClick={() => setIsOpen(true)}
+      >
+        <Search size={14} className="text-slate-500 mr-2 shrink-0" />
+        <input 
+          type="text" 
+          className="w-full bg-transparent border-none outline-none text-xs font-bold text-white placeholder:text-slate-500"
+          placeholder={selectedOption ? '' : placeholder}
+          value={isOpen ? search : displayValue}
+          onChange={(e) => { setSearch(e.target.value); setIsOpen(true); }}
+          onFocus={() => { setIsOpen(true); setSearch(''); }}
+          onBlur={() => { setTimeout(() => setIsOpen(false), 200); }}
+        />
+        {value && !isOpen && (
+          <button 
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onChange(''); setSearch(''); }}
+            className="text-slate-500 hover:text-brand-red ml-2 shrink-0"
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
+            className="absolute z-[100] w-full mt-2 bg-slate-800 border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto custom-scrollbar"
+          >
+            {filteredOptions.length === 0 ? (
+              <div className="p-3 text-xs text-slate-500 text-center">No se encontraron resultados</div>
+            ) : (
+              filteredOptions.map(opt => (
+                <div 
+                  key={opt.value}
+                  className={`px-4 py-3 text-xs font-bold cursor-pointer hover:bg-white/10 transition-colors ${opt.value === value ? 'text-brand-red bg-brand-red/5' : 'text-white'}`}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                    setSearch('');
+                  }}
+                >
+                  {opt.label}
+                </div>
+              ))
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+/**
  * MÓDULO DE ESCANDALLOS (RECETAS) - LAS GROSERAS
  * Permite gestionar las fórmulas de los productos y calcular costos reales.
  */
@@ -22,6 +91,7 @@ const RecipesPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [inventory, setInventory] = useState([]);
+  const [selectedRecipe, setSelectedRecipe] = useState(null);
   
   // Editor State
   const [editorData, setEditorData] = useState({
@@ -39,7 +109,7 @@ const RecipesPage = () => {
   }, []);
 
   const fetchInventory = async () => {
-    const { data } = await supabase.from('inventario').select('*').order('nombre');
+    const { data } = await supabase.from('insumos').select('*').order('marca');
     setInventory(data || []);
   };
 
@@ -52,7 +122,7 @@ const RecipesPage = () => {
           *,
           receta_componentes (
             *,
-            inventario (nombre, precio_unitario, unidad, piezas_por_unidad, producto_base, formato)
+            insumos (tipo_insumo, marca, presentacion, precio_promedio, ml_gr_pieza, precio_x_ml)
           )
         `)
         .order('nombre');
@@ -127,10 +197,9 @@ const RecipesPage = () => {
     const newComps = [...editorData.componentes];
     newComps[idx][field] = value;
     
-    // Si cambia el insumo, sugerir unidad
     if (field === 'insumo_id') {
       const insumo = inventory.find(i => i.id === value);
-      if (insumo) newComps[idx].unidad = insumo.unidad === 'Pieza' ? 'Pieza' : 'Ml/Gr';
+      if (insumo) newComps[idx].unidad = 'Ml/Gr/Pza';
     }
     
     setEditorData({ ...editorData, componentes: newComps });
@@ -147,8 +216,13 @@ const RecipesPage = () => {
       const componentsToSave = editorData.componentes.map(comp => {
         const insumo = inventory.find(i => i.id === comp.insumo_id);
         const qty = parseFloat(comp.cantidad) || 0;
-        const proporcional = insumo ? (insumo.precio_unitario / insumo.piezas_por_unidad) * qty : 0;
+        let proporcional = 0;
+        if (insumo) {
+          proporcional = insumo.precio_x_ml ? (insumo.precio_x_ml * qty) : ((insumo.precio_promedio / insumo.ml_gr_pieza) * qty);
+        }
+        if (isNaN(proporcional)) proporcional = 0;
         costoTotal += proporcional;
+        
         return {
           ...comp,
           costo_proporcional: proporcional
@@ -286,7 +360,7 @@ const RecipesPage = () => {
               <div className="mt-4 flex flex-wrap gap-2">
                 {recipe.receta_componentes?.slice(0, 3).map((item, i) => (
                   <span key={i} className="text-[9px] font-bold text-slate-500 bg-white/5 py-1 px-2 rounded-md">
-                    {item.insumo_nombre_manual || (item.inventario ? `${item.inventario.producto_base || item.inventario.nombre} (${item.inventario.formato || 'Estándar'})` : 'Insumo desconocido')}
+                    {item.insumo_nombre_manual || (item.insumos ? `${item.insumos.marca} (${item.insumos.presentacion})` : 'Insumo desconocido')}
                   </span>
                 ))}
                 {recipe.receta_componentes?.length > 3 && (
@@ -337,7 +411,7 @@ const RecipesPage = () => {
                         {idx + 1}
                       </div>
                       <div>
-                        <div className="font-black text-sm text-white">{item.insumo_nombre_manual || (item.inventario ? `${item.inventario.producto_base || item.inventario.nombre} (${item.inventario.formato || 'Estándar'})` : 'Insumo desconocido')}</div>
+                        <div className="font-black text-sm text-white">{item.insumo_nombre_manual || (item.insumos ? `${item.insumos.marca} (${item.insumos.presentacion})` : 'Insumo desconocido')}</div>
                         <div className="text-[10px] text-slate-500 font-bold">
                           {item.cantidad} {item.unidad}
                         </div>
@@ -432,23 +506,26 @@ const RecipesPage = () => {
                     {editorData.componentes.map((comp, idx) => {
                       const insumo = inventory.find(i => i.id === comp.insumo_id);
                       const unitQty = parseFloat(comp.cantidad) || 0;
-                      const proportionalCost = insumo ? (insumo.precio_unitario / insumo.piezas_por_unidad) * unitQty : 0;
+                      let proportionalCost = 0;
+                      if (insumo) {
+                        proportionalCost = insumo.precio_x_ml ? (insumo.precio_x_ml * unitQty) : ((insumo.precio_promedio / insumo.ml_gr_pieza) * unitQty);
+                      }
+                      if (isNaN(proportionalCost)) proportionalCost = 0;
+
+                      const inventoryOptions = inventory.map(i => ({
+                        value: i.id,
+                        label: `${i.marca} (${i.presentacion}) — $${i.precio_promedio}`
+                      }));
 
                       return (
                         <div key={idx} className="flex flex-col md:flex-row gap-3 p-4 bg-white/5 rounded-2xl border border-white/5 group relative">
                           <div className="flex-1">
-                            <select 
-                              className="w-full bg-slate-900 border-none rounded-xl p-3 text-xs font-bold text-white"
+                            <SearchableSelect 
+                              options={inventoryOptions}
                               value={comp.insumo_id}
-                              onChange={(e) => handleUpdateComponent(idx, 'insumo_id', e.target.value)}
-                            >
-                              <option value="">Seleccionar Insumo...</option>
-                              {inventory.map(i => (
-                                <option key={i.id} value={i.id}>
-                                  {(i.producto_base || i.nombre)} {i.formato ? `(${i.formato})` : ''} — ${i.precio_unitario}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(val) => handleUpdateComponent(idx, 'insumo_id', val)}
+                              placeholder="Buscar insumo por nombre o marca..."
+                            />
                           </div>
                           <div className="w-full md:w-32">
                             <input 
@@ -484,7 +561,13 @@ const RecipesPage = () => {
                     <h4 className="text-4xl font-black text-emerald-400 tracking-tighter">
                       ${editorData.componentes.reduce((acc, comp) => {
                         const insumo = inventory.find(i => i.id === comp.insumo_id);
-                        return acc + (insumo ? (insumo.precio_unitario / insumo.piezas_por_unidad) * (parseFloat(comp.cantidad) || 0) : 0);
+                        const unitQty = parseFloat(comp.cantidad) || 0;
+                        let cost = 0;
+                        if (insumo) {
+                          cost = insumo.precio_x_ml ? (insumo.precio_x_ml * unitQty) : ((insumo.precio_promedio / insumo.ml_gr_pieza) * unitQty);
+                        }
+                        if (isNaN(cost)) cost = 0;
+                        return acc + cost;
                       }, 0).toFixed(2)}
                     </h4>
                  </div>
