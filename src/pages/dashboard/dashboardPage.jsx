@@ -225,16 +225,16 @@ const DashboardPage = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="lobster text-3xl flex items-center gap-3" style={{ color: '#f7ebd7' }}>
+          <h1 className="lobster text-3xl flex items-center gap-3" style={{ color: 'rgb(var(--brand-cream))' }}>
             <LayoutDashboard style={{ color: '#fecc30' }} size={30} />
-            Control de Misión
+            Dashboard
           </h1>
-          <p className="mt-1 font-sans text-base" style={{ color: 'rgba(247,235,215,0.45)' }}>
+          <p className="mt-1 font-sans text-base" style={{ color: 'rgb(var(--brand-cream) / 0.45)' }}>
             Resumen operativo de Las Groseras.
           </p>
         </div>
         <div className="text-xs flex items-center gap-2 px-3 py-1.5 rounded-full font-sans"
-          style={{ background: 'rgba(247,235,215,0.05)', border: '1px solid rgba(247,235,215,0.08)', color: 'rgba(247,235,215,0.35)' }}>
+          style={{ background: 'rgb(var(--brand-cream) / 0.05)', border: '1px solid rgb(var(--brand-cream) / 0.08)', color: 'rgb(var(--brand-cream) / 0.35)' }}>
           <Clock size={12} />
           {new Date().toLocaleTimeString()}
         </div>
@@ -250,12 +250,12 @@ const DashboardPage = () => {
             key={i}
             className="relative overflow-hidden p-6 rounded-2xl group cursor-default"
             style={{
-              background: 'rgba(247,235,215,0.04)',
+              background: 'rgb(var(--brand-cream) / 0.04)',
               border: `1px solid ${item.border}`,
               backdropFilter: 'blur(12px)',
               transition: 'all 0.3s',
             }}
-            whileHover={{ scale: 1.02, background: 'rgba(247,235,215,0.07)' }}
+            whileHover={{ scale: 1.02, background: 'rgb(var(--brand-cream) / 0.07)' }}
           >
             {/* Background glow */}
             <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full blur-2xl opacity-20 transition-opacity group-hover:opacity-40"
@@ -267,10 +267,10 @@ const DashboardPage = () => {
                 <item.icon size={20} />
               </div>
               <p className="text-sm font-semibold tracking-widest font-sans mb-1"
-                style={{ color: 'rgba(247,235,215,0.45)' }}>
+                style={{ color: 'rgb(var(--brand-cream) / 0.45)' }}>
                 {item.label}
               </p>
-              <h3 className="text-[34px] tracking-tight" style={{ color: '#f7ebd7' }}>
+              <h3 className="text-[34px] tracking-tight" style={{ color: 'rgb(var(--brand-cream))' }}>
                 {item.value}
               </h3>
             </div>
@@ -334,9 +334,9 @@ const DashboardPage = () => {
                 </tbody>
               </table>
             ) : (
-              <div className="flex flex-col items-center justify-center py-16 space-y-4" style={{ color: 'rgba(247,235,215,0.2)' }}>
+              <div className="flex flex-col items-center justify-center py-16 space-y-4" style={{ color: 'rgb(var(--brand-cream) / 0.2)' }}>
                 <Calendar size={44} />
-                <p className="text-base font-sans" style={{ color: 'rgba(247,235,215,0.3)' }}>
+                <p className="text-base font-sans" style={{ color: 'rgb(var(--brand-cream) / 0.3)' }}>
                   No hay eventos confirmados registrados.
                 </p>
               </div>

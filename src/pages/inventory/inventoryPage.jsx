@@ -276,11 +276,11 @@ const InventoryPage = () => {
       {/* HEADER */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-slate-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-md gap-6">
         <div>
-          <h1 className="lobster text-2xl sm:text-3xl text-white flex items-center gap-3">
+          <h1 className="lobster text-[27px] sm:text-[33px] text-white flex items-center gap-3">
              <Layers className="text-brand-red animate-pulse shrink-0" size={32} />
              Inventario & Costos
           </h1>
-          <p className="text-slate-500 text-xs font-bold tracking-[0.2em] mt-1">Gestión de Stock y Escandallos • Las Groseras</p>
+          <p className="text-slate-500 text-[15px] font-bold tracking-[0.2em] mt-1">Gestión de stock</p>
         </div>
         <div className="flex flex-wrap gap-4 w-full lg:w-auto">
           <button className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 transition-all" onClick={fetchInventory}>
@@ -291,7 +291,7 @@ const InventoryPage = () => {
             <span className="font-black">Nuevo insumo</span>
           </button>
           <button 
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl hover:bg-emerald-500/20 transition-all font-black shadow-xl shadow-emerald-500/10 flex-1 sm:flex-none text-xs"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl hover:bg-emerald-500/20 transition-all font-black shadow-xl shadow-emerald-500/10 flex-1 sm:flex-none text-[15px]"
             onClick={() => setIsBulkModalOpen(true)}
           >
             <Download size={18} className="rotate-180" />
@@ -314,8 +314,8 @@ const InventoryPage = () => {
              <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-10 group-hover:opacity-20 transition-opacity ${stat.bg}`} />
              <div className="flex justify-between items-start relative z-10">
                <div>
-                 <p className="text-[10px] font-black text-slate-500 tracking-widest">{stat.label}</p>
-                 <h3 className={`text-3xl font-black mt-2 tracking-tighter ${stat.color}`}>{stat.value}</h3>
+                 <p className="text-[13px] font-black text-slate-500 tracking-widest">{stat.label}</p>
+                 <h3 className={`text-[33px] font-black mt-2 tracking-tighter ${stat.color}`}>{stat.value}</h3>
                </div>
                <div className={`p-4 rounded-2xl ${stat.bg} ${stat.color}`}>
                  <stat.icon size={24} />
@@ -337,7 +337,7 @@ const InventoryPage = () => {
         <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
             <Filter size={16} className="text-brand-red" />
             <select 
-              className="bg-transparent focus:outline-none text-white text-xs font-bold tracking-widest cursor-pointer"
+              className="bg-transparent focus:outline-none text-white text-[15px] font-bold tracking-widest cursor-pointer"
               value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
             >
               {categories.map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
@@ -351,12 +351,12 @@ const InventoryPage = () => {
           <table className="w-full text-left border-collapse">
             <thead className="bg-white/[0.02] border-b border-white/5">
               <tr>
-                <th className="px-6 py-5 text-[10px] font-black tracking-widest text-slate-500">Insumo & Presentación</th>
-                <th className="px-6 py-5 text-[10px] font-black tracking-widest text-slate-500">Categoría</th>
-                <th className="px-6 py-5 text-[10px] font-black tracking-widest text-slate-500">Stock Actual</th>
-                <th className="px-6 py-5 text-[10px] font-black tracking-widest text-slate-500 text-center">Piezas/U</th>
-                <th className="px-6 py-5 text-[10px] font-black tracking-widest text-slate-500">Desglose de Precios</th>
-                <th className="px-6 py-5 text-[10px] font-black tracking-widest text-slate-500 text-right">Acción</th>
+                <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Insumo & Presentación</th>
+                <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Categoría</th>
+                <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Stock Actual</th>
+                <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500 text-center">Piezas/U</th>
+                <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Desglose de Precios</th>
+                <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500 text-right">Acción</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.03]">
@@ -374,27 +374,27 @@ const InventoryPage = () => {
                             <div className={expandedProducts[product.name] ? 'block' : 'hidden'} style={{width: 14, height: 2, background: 'currentColor'}} />
                           </div>
                           <div>
-                            <div className="font-black text-white text-base tracking-tight group-hover:text-brand-red transition-colors">{product.name}</div>
-                            <div className="text-[10px] text-slate-500 font-bold tracking-widest">{product.presentations.length} Presentaciones disponibles</div>
+                            <div className="font-black text-white text-[19px] tracking-tight group-hover:text-brand-red transition-colors">{product.name}</div>
+                            <div className="text-[13px] text-slate-500 font-bold tracking-widest">{product.presentations.length} Presentaciones disponibles</div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-5">
-                        <span className="px-3 py-1.5 rounded-lg bg-white/5 text-[10px] font-black tracking-widest text-slate-400 border border-white/5">
+                        <span className="px-3 py-1.5 rounded-lg bg-white/5 text-[13px] font-black tracking-widest text-slate-400 border border-white/5">
                           {product.category}
                         </span>
                       </td>
                       <td className="px-6 py-5">
-                        <div className={`text-sm font-black tracking-tighter ${product.hasAlert ? 'text-brand-red flex items-center gap-1.5' : 'text-emerald-400'}`}>
+                        <div className={`text-[17px] font-black tracking-tighter ${product.hasAlert ? 'text-brand-red flex items-center gap-1.5' : 'text-emerald-400'}`}>
                           {product.totalStock} <span className="opacity-50 lowercase">{product.unit}</span>
                           {product.hasAlert && <AlertTriangle size={14} className="animate-bounce" />}
                         </div>
-                        <div className="text-[9px] text-slate-600 font-bold">Total Global</div>
+                        <div className="text-[12px] text-slate-600 font-bold">Total Global</div>
                       </td>
                       <td className="px-6 py-5 text-center text-slate-500">—</td>
-                      <td className="px-6 py-5 text-slate-500 text-xs">Agrupado por producto</td>
+                      <td className="px-6 py-5 text-slate-500 text-[15px]">Agrupado por producto</td>
                       <td className="px-6 py-5 text-right">
-                         <div className="text-slate-600 group-hover:text-brand-red transition-colors font-black text-[10px] tracking-widest">
+                         <div className="text-slate-600 group-hover:text-brand-red transition-colors font-black text-[13px] tracking-widest">
                            {expandedProducts[product.name] ? 'Cerrar' : 'Ver Detalles'}
                          </div>
                       </td>
@@ -413,26 +413,26 @@ const InventoryPage = () => {
                             className="bg-white/[0.01] hover:bg-white/[0.03] transition-colors group/row border-l-4 border-brand-red/30"
                           >
                             <td className="px-6 py-4 pl-16">
-                              <div className="font-bold text-slate-200 text-sm">{item.formato || 'Estándar'}</div>
-                              <div className="text-[9px] text-slate-500 font-bold flex items-center gap-1">
+                              <div className="font-bold text-slate-200 text-[17px]">{item.formato || 'Estándar'}</div>
+                              <div className="text-[12px] text-slate-500 font-bold flex items-center gap-1">
                                 {item.proveedor || 'S/N'} • PROD ID: {item.id.split('-')[0]}
                               </div>
                             </td>
                             <td className="px-6 py-4"></td>
                             <td className="px-6 py-4">
-                              <div className={`text-sm font-black tracking-tighter ${item.cantidad_actual <= item.cantidad_minima ? 'text-brand-red' : 'text-slate-300'}`}>
+                              <div className={`text-[17px] font-black tracking-tighter ${item.cantidad_actual <= item.cantidad_minima ? 'text-brand-red' : 'text-slate-300'}`}>
                                 {item.cantidad_actual} <span className="opacity-40">{item.unidad}</span>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">
-                               <div className="bg-white/5 py-1 px-2 rounded-lg inline-block border border-white/5 text-[11px] font-black text-slate-400">
+                               <div className="bg-white/5 py-1 px-2 rounded-lg inline-block border border-white/5 text-[14px] font-black text-slate-400">
                                  x {item.piezas_por_unidad || 1}
                                </div>
                             </td>
                             <td className="px-6 py-4">
                               <div className="space-y-0.5">
-                                 <div className="text-xs font-black text-emerald-400/80">${item.precio_unitario?.toLocaleString()}</div>
-                                 <div className="text-[9px] font-bold text-slate-500">Unitario: ${unitPrice.toFixed(2)}</div>
+                                 <div className="text-[15px] font-black text-emerald-400/80">${item.precio_unitario?.toLocaleString()}</div>
+                                 <div className="text-[12px] font-bold text-slate-500">Unitario: ${unitPrice.toFixed(2)}</div>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-right">
@@ -469,16 +469,16 @@ const InventoryPage = () => {
               </button>
               
               <div className="mb-8 border-b border-white/5 pb-6">
-                <h2 className="text-3xl font-black text-white tracking-tighter flex items-center gap-3">
+                <h2 className="text-[33px] font-black text-white tracking-tighter flex items-center gap-3">
                   {editingItem ? <Edit2 size={28} className="text-emerald-400" /> : <Plus size={28} className="text-brand-red" />}
                   {editingItem ? 'Editar insumo' : 'NUEVO INSUMO'}
                 </h2>
-                <p className="text-slate-500 text-[10px] font-black tracking-[0.2em] mt-1">Configuración técnica de stock y costos unitarios</p>
+                <p className="text-slate-500 text-[13px] font-black tracking-[0.2em] mt-1">Configuración técnica de stock y costos unitarios</p>
               </div>
 
                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="md:col-span-1">
-                  <label className="block text-[10px] font-black text-slate-500 tracking-widest mb-2 px-1">Producto Principal (Base)</label>
+                  <label className="block text-[13px] font-black text-slate-500 tracking-widest mb-2 px-1">Producto Principal (Base)</label>
                   <input 
                     required type="text" list="base-product-list" placeholder="Ej: Cerveza Corona" className="input-field py-4 bg-white/5 border-white/10"
                     value={formData.producto_base} onChange={(e) => handleBaseNameChange(e.target.value)}
@@ -486,7 +486,7 @@ const InventoryPage = () => {
                 </div>
 
                 <div className="md:col-span-1">
-                  <label className="block text-[10px] font-black text-slate-500 tracking-widest mb-2 px-1">Presentación / Formato</label>
+                  <label className="block text-[13px] font-black text-slate-500 tracking-widest mb-2 px-1">Presentación / Formato</label>
                   <input 
                     required type="text" placeholder="Ej: 355ml, Botella, 1L..." className="input-field py-4 bg-white/5 border-white/10"
                     value={formData.formato} onChange={(e) => setFormData({...formData, formato: e.target.value})}
@@ -495,7 +495,7 @@ const InventoryPage = () => {
                 
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-500 tracking-widest mb-2 px-1">Categoría</label>
+                    <label className="block text-[13px] font-black text-slate-500 tracking-widest mb-2 px-1">Categoría</label>
                     <select 
                       className="input-field cursor-pointer bg-white/5 border-white/10 font-bold"
                       value={formData.categoria} onChange={(e) => setFormData({...formData, categoria: e.target.value})}
@@ -504,7 +504,7 @@ const InventoryPage = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-500 tracking-widest mb-2 px-1">Unidad de Gestión</label>
+                    <label className="block text-[13px] font-black text-slate-500 tracking-widest mb-2 px-1">Unidad de Gestión</label>
                     <input 
                       placeholder="Pzas, Litros, Caja..." className="input-field bg-white/5 border-white/10"
                       value={formData.unidad} onChange={(e) => setFormData({...formData, unidad: e.target.value})}
@@ -514,25 +514,25 @@ const InventoryPage = () => {
 
                 <div className="space-y-6">
                    <div className="p-6 bg-brand-red/5 rounded-3xl border border-brand-red/20">
-                      <h4 className="text-[10px] font-black text-brand-red tracking-widest mb-4 flex items-center gap-2">
+                      <h4 className="text-[13px] font-black text-brand-red tracking-widest mb-4 flex items-center gap-2">
                         <Calculator size={14} /> Desglose de unidades
                       </h4>
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-[9px] font-black text-slate-500 mb-2">Precio de la Presentación ($)</label>
+                          <label className="block text-[12px] font-black text-slate-500 mb-2">Precio de la Presentación ($)</label>
                           <input 
                             type="number" step="0.01" className="input-field bg-white/10 border-brand-red/20 text-emerald-400 font-black text-lg"
                             value={formData.precio_unitario} onChange={(e) => setFormData({...formData, precio_unitario: Number(e.target.value)})}
                           />
                         </div>
                         <div>
-                          <label className="block text-[9px] font-black text-slate-500 mb-2">¿Cuántas piezas vienen dentro?</label>
+                          <label className="block text-[12px] font-black text-slate-500 mb-2">¿Cuántas piezas vienen dentro?</label>
                           <input 
                             type="number" className="input-field bg-white/10 border-brand-red/20 font-black"
                             value={formData.piezas_por_unidad} onChange={(e) => setFormData({...formData, piezas_por_unidad: Math.max(1, Number(e.target.value))})}
                           />
                         </div>
-                        <div className="pt-2 border-t border-brand-red/10 flex justify-between items-center text-[11px] font-bold">
+                        <div className="pt-2 border-t border-brand-red/10 flex justify-between items-center text-[14px] font-bold">
                            <span className="text-slate-500">Costo Unitario Real:</span>
                            <span className="text-white">${(formData.precio_unitario / (formData.piezas_por_unidad || 1)).toFixed(2)}</span>
                         </div>
@@ -541,15 +541,15 @@ const InventoryPage = () => {
                 </div>
 
                 <div className="md:col-span-1">
-                  <label className="block text-[10px] font-black text-slate-500 tracking-widest mb-2">Stock Actual</label>
+                  <label className="block text-[13px] font-black text-slate-500 tracking-widest mb-2">Stock Actual</label>
                   <input 
-                    type="number" className="input-field bg-white/5 border-white/10 text-xl font-black"
+                    type="number" className="input-field bg-white/5 border-white/10 text-[23px] font-black"
                     value={formData.cantidad_actual} onChange={(e) => setFormData({...formData, cantidad_actual: Number(e.target.value)})}
                   />
                 </div>
 
                 <div className="md:col-span-1">
-                  <label className="block text-[10px] font-black text-slate-500 tracking-widest mb-2">Mínimo Crítico</label>
+                  <label className="block text-[13px] font-black text-slate-500 tracking-widest mb-2">Mínimo Crítico</label>
                   <input 
                     type="number" className="input-field bg-white/5 border-white/10 font-bold"
                     value={formData.cantidad_minima} onChange={(e) => setFormData({...formData, cantidad_minima: Number(e.target.value)})}
@@ -557,7 +557,7 @@ const InventoryPage = () => {
                 </div>
 
                 <div className="md:col-span-2 flex justify-end gap-4 mt-4 pt-6 border-t border-white/5">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary px-8 font-black text-[10px]">Cancelar</button>
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary px-8 font-black text-[13px]">Cancelar</button>
                   <button type="submit" className="btn-primary px-12 py-4 rounded-2xl shadow-xl shadow-brand-red/20 font-black tracking-tighter">
                     <Save size={20} className="stroke-[3px]" />
                     {editingItem ? 'Actualizar datos' : 'Crear insumo'}
@@ -588,11 +588,11 @@ const InventoryPage = () => {
               </button>
 
               <div className="mb-8 border-b border-white/5 pb-6">
-                <h2 className="text-3xl font-black text-white tracking-tighter flex items-center gap-3">
+                <h2 className="text-[33px] font-black text-white tracking-tighter flex items-center gap-3">
                   <Download size={28} className="text-emerald-400 rotate-180" />
                   Carga masiva CSV
                 </h2>
-                <p className="text-slate-500 text-[10px] font-black tracking-[0.2em] mt-1">Actualización masiva de inventario vía archivo CSV</p>
+                <p className="text-slate-500 text-[13px] font-black tracking-[0.2em] mt-1">Actualización masiva de inventario vía archivo CSV</p>
               </div>
 
               <div className="space-y-6">
@@ -605,7 +605,7 @@ const InventoryPage = () => {
                   </div>
                   <div className="text-center">
                     <p className="text-white font-black">Seleccionar archivo CSV</p>
-                    <p className="text-slate-500 text-[10px] font-bold mt-1">Arrastra tu archivo aquí o haz clic</p>
+                    <p className="text-slate-500 text-[13px] font-bold mt-1">Arrastra tu archivo aquí o haz clic</p>
                   </div>
                   <input 
                     id="bulk-file-input" type="file" accept=".csv" className="hidden" 
@@ -614,10 +614,10 @@ const InventoryPage = () => {
                 </div>
 
                 <div className="bg-slate-900/50 p-6 rounded-2xl border border-white/5">
-                  <h4 className="text-[10px] font-black text-slate-400 tracking-widest mb-4 flex items-center gap-2">
+                  <h4 className="text-[13px] font-black text-slate-400 tracking-widest mb-4 flex items-center gap-2">
                     <Info size={14} className="text-brand-red" /> INSTRUCCIONES
                   </h4>
-                  <ul className="text-[10px] text-slate-500 space-y-2 font-bold leading-relaxed">
+                  <ul className="text-[13px] text-slate-500 space-y-2 font-bold leading-relaxed">
                     <li>• El archivo debe estar en formato <span className="text-white">.CSV</span></li>
                     <li>• No cambies el nombre de las columnas del layout.</li>
                     <li>• El sistema autogenera el nombre técnico combinando el <span className="text-white">Producto Base</span> y su <span className="text-white">Formato</span>.</li>
@@ -628,7 +628,7 @@ const InventoryPage = () => {
 
                 <button 
                   onClick={handleDownloadLayout}
-                  className="w-full flex items-center justify-center gap-2 p-4 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 transition-all font-black text-xs border border-white/5"
+                  className="w-full flex items-center justify-center gap-2 p-4 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 transition-all font-black text-[15px] border border-white/5"
                 >
                   <Download size={16} />
                   Descargar Layout de Ejemplo

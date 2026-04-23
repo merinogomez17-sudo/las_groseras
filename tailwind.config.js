@@ -8,16 +8,16 @@ export default {
     extend: {
       colors: {
         brand: {
-          cream: '#f7ebd7',
-          dark: '#020100',
-          yellow: '#fecc30',
+          // These reference CSS vars so they switch with the theme automatically
+          cream: 'rgb(var(--brand-cream) / <alpha-value>)',
+          dark: 'rgb(var(--brand-dark) / <alpha-value>)',
+          yellow: 'rgb(var(--brand-yellow) / <alpha-value>)',
           'yellow-dark': '#d4a800',
-          teal: '#40b3ac',
+          teal: 'rgb(var(--brand-teal) / <alpha-value>)',
           'teal-dark': '#2e9991',
-          // Aliases so existing references to brand-red auto-update
-          red: '#fecc30',
+          red: 'rgb(var(--brand-yellow) / <alpha-value>)',
           'red-dark': '#d4a800',
-          light: '#f7ebd7',
+          light: 'rgb(var(--brand-cream) / <alpha-value>)',
         }
       },
       fontFamily: {

@@ -9,7 +9,9 @@
       "Bash(sed -i 's/>NUEVO LEAD</>Nuevo lead</g; s/EDITAR PROSPECTO/Editar prospecto/g; s/REGISTRAR NUEVO LEAD/Registrar nuevo lead/g; s/>ACTUALIZAR</>Actualizar</g; s/GUARDAR LEAD/Guardar lead/g' leads/leadsPage.jsx)",
       "Bash(sed -i 's/>NUEVO INSUMO</>Nuevo insumo</g; s/>CARGA MASIVA</>Carga masiva</g; s/EDITAR INSUMO/Editar insumo/g; s/DESGLOSE DE UNIDADES/Desglose de unidades/g; s/ACTUALIZAR DATOS/Actualizar datos/g; s/CREAR INSUMO/Crear insumo/g; s/CARGA MASIVA CSV/Carga masiva CSV/g; s/>INSTRUCCIONES</>Instrucciones</g' inventory/inventoryPage.jsx)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(grep -E \"\\\\.\\(jsx|js|tsx|ts\\)$\")",
+      "Bash(npm run *)"
     ]
   }
 }

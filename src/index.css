@@ -3,11 +3,33 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  /* ── Dark theme (default) ── */
+  :root,
+  [data-theme="dark"] {
     --brand-yellow: 254 204 48;
     --brand-teal: 64 179 172;
     --brand-dark: 2 1 0;
     --brand-cream: 247 235 215;
+    --sidebar-bg: linear-gradient(160deg, #0d0b09 0%, #020100 60%, #0a1210 100%);
+    --sidebar-border: rgba(254, 204, 48, 0.12);
+    --body-glow-yellow: rgba(254, 204, 48, 0.04);
+    --body-glow-teal: rgba(64, 179, 172, 0.04);
+    --input-bg: rgba(2, 1, 0, 0.6);
+    --modal-input-bg: rgba(0, 0, 0, 0.4);
+  }
+
+  /* ── Light theme ── */
+  [data-theme="light"] {
+    --brand-yellow: 176 138 0;
+    --brand-teal: 24 118 113;
+    --brand-dark: 243 238 228;
+    --brand-cream: 28 18 8;
+    --sidebar-bg: linear-gradient(160deg, #e8e3d8 0%, #ddd8cd 60%, #d8e8e7 100%);
+    --sidebar-border: rgba(28, 18, 8, 0.12);
+    --body-glow-yellow: rgba(176, 138, 0, 0.06);
+    --body-glow-teal: rgba(24, 118, 113, 0.06);
+    --input-bg: rgba(243, 238, 228, 0.8);
+    --modal-input-bg: rgba(230, 225, 215, 0.8);
   }
 
   *, *::before, *::after {
@@ -18,15 +40,20 @@
     @apply bg-brand-dark text-brand-cream min-h-screen;
     font-size: 17px;
     font-family: 'Josefin Sans', sans-serif;
-    background-image: radial-gradient(ellipse at 20% 50%, rgba(254, 204, 48, 0.04) 0%, transparent 60%),
-                      radial-gradient(ellipse at 80% 20%, rgba(64, 179, 172, 0.04) 0%, transparent 60%);
+    background-image:
+      radial-gradient(ellipse at 20% 50%, var(--body-glow-yellow) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, var(--body-glow-teal) 0%, transparent 60%);
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
-
 }
 
 @layer components {
   .glass {
     @apply bg-brand-cream/5 backdrop-blur-md border border-brand-cream/10 rounded-2xl shadow-xl transition-all duration-300;
+  }
+
+  [data-theme="light"] .glass {
+    box-shadow: 0 4px 24px rgb(var(--brand-cream) / 0.08), 0 1px 4px rgb(var(--brand-cream) / 0.05);
   }
 
   .glass-hover {
@@ -42,7 +69,8 @@
   }
 
   .input-field {
-    @apply bg-brand-dark/60 border border-brand-cream/15 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 focus:border-brand-yellow/60 transition-all duration-300 text-brand-cream placeholder:text-brand-cream/30 w-full font-sans;
+    @apply border border-brand-cream/15 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 focus:border-brand-yellow/60 transition-all duration-300 text-brand-cream placeholder:text-brand-cream/30 w-full font-sans;
+    background: var(--input-bg);
   }
 
   .card-title {
@@ -56,7 +84,7 @@
   }
 }
 
-/* Custom Scrollbar */
+/* ── Scrollbar ── */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -66,18 +94,51 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(var(--brand-cream), 0.15);
+  background: rgb(var(--brand-cream) / 0.15);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--brand-yellow), 0.4);
+  background: rgb(var(--brand-yellow) / 0.4);
 }
 
-/* Override common dark-theme utilities to match new palette */
+/* ── Slate utility overrides — use CSS vars so they switch with theme ── */
 .text-slate-100, .text-slate-200 { color: rgb(var(--brand-cream)); }
-.text-slate-400 { color: rgba(var(--brand-cream), 0.55); }
-.text-slate-500 { color: rgba(var(--brand-cream), 0.38); }
-.border-slate-700 { border-color: rgba(var(--brand-cream), 0.12); }
-.bg-slate-900\/50 { background-color: rgba(var(--brand-dark), 0.7); }
-.bg-slate-800 { background-color: rgba(var(--brand-cream), 0.06); }
+.text-slate-400 { color: rgb(var(--brand-cream) / 0.55); }
+.text-slate-500 { color: rgb(var(--brand-cream) / 0.38); }
+.border-slate-700 { border-color: rgb(var(--brand-cream) / 0.12); }
+.bg-slate-900\/50 { background-color: rgb(var(--brand-dark) / 0.7); }
+.bg-slate-800 { background-color: rgb(var(--brand-cream) / 0.06); }
+
+/* ── Light mode: override hardcoded dark backgrounds inside modals/forms ── */
+[data-theme="light"] textarea,
+[data-theme="light"] input[type="text"],
+[data-theme="light"] input[type="number"],
+[data-theme="light"] input[type="email"],
+[data-theme="light"] input[type="search"] {
+  color: rgb(var(--brand-cream));
+}
+
+[data-theme="light"] [class*="bg-black"] {
+  --tw-bg-opacity: 0.06;
+}
+
+[data-theme="light"] [class*="bg-white/5"],
+[data-theme="light"] [class*="bg-white\/5"] {
+  background-color: rgb(var(--brand-cream) / 0.06) !important;
+}
+
+[data-theme="light"] [class*="bg-white/10"],
+[data-theme="light"] [class*="bg-white\/10"] {
+  background-color: rgb(var(--brand-cream) / 0.1) !important;
+}
+
+/* Light mode: calendar day cells */
+[data-theme="light"] [class*="bg-\\[\\#0a0a0a\\]"] {
+  background-color: rgb(var(--brand-dark) / 0.3) !important;
+}
+
+/* Light mode: transition for all elements */
+[data-theme="light"] * {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
