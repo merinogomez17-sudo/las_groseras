@@ -11,6 +11,7 @@ import Customers from './pages/customers/customersPage';
 import Leads from './pages/leads/leadsPage';
 import Quotes from './pages/quotes/quotesPage';
 import Recipes from './pages/recipes/recipesPage';
+import Insumos from './pages/insumos/insumosPage';
 import Events from './pages/events/eventsPage';
 import { SettingsPage as Settings } from './pages/placeholders';
 import AdminGuard from './components/auth/AdminGuard';
@@ -72,6 +73,7 @@ function AdminLayout() {
             <Route path="/leads" element={<Leads />} />
             <Route path="/cotizaciones" element={<Quotes />} />
             <Route path="/recetas" element={<Recipes />} />
+            <Route path="/insumos" element={<Insumos />} />
             <Route path="/eventos" element={<Events />} />
             <Route path="/configuracion" element={<Settings />} />
           </Routes>

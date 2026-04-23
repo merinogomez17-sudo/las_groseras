@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Sun,
   Moon,
+  FlaskConical,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../context/ThemeContext';
@@ -26,6 +27,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile, isMobileOpen, setIsMob
     { icon: Users, label: 'Clientes', path: '/admin/clientes' },
     { icon: Target, label: 'Leads', path: '/admin/leads' },
     { icon: BookOpen, label: 'Costos', path: '/admin/recetas' },
+    { icon: FlaskConical, label: 'Insumos', path: '/admin/insumos' },
     { icon: FileText, label: 'Cotizaciones', path: '/admin/cotizaciones' },
     { icon: Calendar, label: 'Eventos', path: '/admin/eventos' },
     { icon: SettingsIcon, label: 'Configuración', path: '/admin/configuracion' },

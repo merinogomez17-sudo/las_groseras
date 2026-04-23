@@ -11,7 +11,13 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(grep -E \"\\\\.\\(jsx|js|tsx|ts\\)$\")",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(psql \"postgresql://postgres:MerinoTrueba17@db.kcfvjorpgucdrbjbfdef.supabase.co:5432/postgres\" -c \"\\\\dt insumos\")",
+      "Bash(node -e \"const { Pool } = require\\('pg'\\); const pool = new Pool\\({ connectionString: 'postgresql://postgres:MerinoTrueba17@db.kcfvjorpgucdrbjbfdef.supabase.co:5432/postgres', ssl: { rejectUnauthorized: false } }\\); pool.query\\('SELECT tablename FROM pg_tables WHERE schemaname = \\\\'public\\\\' ORDER BY tablename'\\).then\\(r => { console.log\\(r.rows.map\\(x=>x.tablename\\).join\\(', '\\)\\); pool.end\\(\\); }\\).catch\\(e => { console.error\\(e.message\\); pool.end\\(\\); }\\);\")",
+      "Bash(node -e ' *)",
+      "Bash(node scripts/seed_insumos.js)",
+      "Bash(mv scripts/seed_insumos.js scripts/seed_insumos.cjs)",
+      "Bash(node scripts/seed_insumos.cjs)"
     ]
   }
 }
