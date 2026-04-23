@@ -229,7 +229,7 @@ const DashboardPage = () => {
             <LayoutDashboard style={{ color: '#fecc30' }} size={30} />
             Control de Misión
           </h1>
-          <p className="mt-1 font-sans text-sm" style={{ color: 'rgba(247,235,215,0.45)' }}>
+          <p className="mt-1 font-sans text-base" style={{ color: 'rgba(247,235,215,0.45)' }}>
             Resumen operativo de Las Groseras.
           </p>
         </div>
@@ -266,11 +266,11 @@ const DashboardPage = () => {
                 style={{ background: item.bg, color: item.accent }}>
                 <item.icon size={20} />
               </div>
-              <p className="text-xs font-semibold tracking-widest font-sans mb-1"
+              <p className="text-sm font-semibold tracking-widest font-sans mb-1"
                 style={{ color: 'rgba(247,235,215,0.45)' }}>
                 {item.label}
               </p>
-              <h3 className="text-3xl tracking-tight" style={{ color: '#f7ebd7' }}>
+              <h3 className="text-[34px] tracking-tight" style={{ color: '#f7ebd7' }}>
                 {item.value}
               </h3>
             </div>
@@ -291,51 +291,52 @@ const DashboardPage = () => {
               Ver calendario
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-4">
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
             {stats.recentEvents.length > 0 ? (
-              stats.recentEvents.map((event, idx) => {
-                const dateStr = event.fecha_evento || event.cotizaciones?.leads?.fecha_tentativa;
-                let formattedDate = 'S/N';
-                if (dateStr) {
-                  const [y, m, d] = dateStr.split('-').map(Number);
-                  const dObj = new Date(y, m - 1, d);
-                  formattedDate = dObj.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
-                }
-
-                return (
-                  <motion.div
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    key={event.id}
-                    onClick={() => {
-                      setSelectedEventDetail(event);
-                      setIsDetailsOpen(true);
-                    }}
-                    className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 transition-colors group cursor-pointer"
-                  >
-                    <div className="w-12 h-12 rounded-xl flex flex-col items-center justify-center bg-brand-teal/10 border border-brand-teal/20 text-brand-teal">
-                      <span className="text-xs font-black uppercase leading-none">{formattedDate.split(' ')[1]}</span>
-                      <span className="text-lg font-black leading-none">{formattedDate.split(' ')[0]}</span>
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-sm font-bold text-slate-200 group-hover:text-brand-teal transition-colors">{event.nombre_evento}</h4>
-                      <p className="text-[10px] font-black tracking-widest text-slate-500 uppercase mt-0.5">
-                        Pedido de {event.cotizaciones?.leads?.nombre_contacto || 'S/N'}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span className="text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter bg-emerald-500/10 text-emerald-400">
-                        {event.estado === 'finalizado' ? 'Confirmado' : event.estado}
-                      </span>
-                    </div>
-                  </motion.div>
-                );
-              })
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="pb-3 text-xs font-black tracking-widest uppercase text-slate-500 w-28">Fecha</th>
+                    <th className="pb-3 text-xs font-black tracking-widest uppercase text-slate-500">Evento</th>
+                    <th className="pb-3 text-xs font-black tracking-widest uppercase text-slate-500 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.recentEvents.map((event, idx) => {
+                    const dateStr = event.fecha_evento || event.cotizaciones?.leads?.fecha_tentativa;
+                    let formattedDate = 'S/N';
+                    if (dateStr) {
+                      const [y, m, d] = dateStr.split('-').map(Number);
+                      const dObj = new Date(y, m - 1, d);
+                      formattedDate = dObj.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+                    }
+                    return (
+                      <motion.tr
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        key={event.id}
+                        onClick={() => { setSelectedEventDetail(event); setIsDetailsOpen(true); }}
+                        className="border-b border-white/5 hover:bg-white/5 transition-colors group cursor-pointer"
+                      >
+                        <td className="py-3 pr-4 text-sm font-bold text-slate-400 whitespace-nowrap">{formattedDate}</td>
+                        <td className="py-3 pr-4">
+                          <span className="text-sm font-bold text-slate-200 group-hover:text-brand-teal transition-colors">{event.nombre_evento}</span>
+                        </td>
+                        <td className="py-3 text-right">
+                          <span className="text-xs font-black px-3 py-1 rounded-full uppercase tracking-tighter bg-emerald-500/10 text-emerald-400">
+                            {event.estado === 'finalizado' ? 'Confirmado' : event.estado}
+                          </span>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             ) : (
               <div className="flex flex-col items-center justify-center py-16 space-y-4" style={{ color: 'rgba(247,235,215,0.2)' }}>
                 <Calendar size={44} />
-                <p className="text-sm font-sans" style={{ color: 'rgba(247,235,215,0.3)' }}>
+                <p className="text-base font-sans" style={{ color: 'rgba(247,235,215,0.3)' }}>
                   No hay eventos confirmados registrados.
                 </p>
               </div>
@@ -348,7 +349,7 @@ const DashboardPage = () => {
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-brand-yellow/50 to-transparent" />
           <div className="flex justify-between items-center mb-6">
             <h2 className="card-title" style={{ color: '#fecc30' }}>Stock Crítico</h2>
-            <span className="text-[10px] font-black px-2 py-1 bg-brand-yellow/10 text-brand-yellow rounded-lg border border-brand-yellow/20">
+            <span className="text-sm font-black px-2 py-1 bg-brand-yellow/10 text-brand-yellow rounded-lg border border-brand-yellow/20">
               {stats.inventoryAlerts} Alertas
             </span>
           </div>
@@ -359,12 +360,12 @@ const DashboardPage = () => {
                 <div key={item.id} className="p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-brand-yellow/20 transition-all">
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <h4 className="text-sm font-black text-slate-200">{item.nombre}</h4>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{item.unidad}</p>
+                      <h4 className="text-base font-black text-slate-200">{item.nombre}</h4>
+                      <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">{item.unidad}</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs font-black text-rose-500">{item.cantidad_actual} / {item.cantidad_minima}</div>
-                      <div className="text-[8px] font-bold text-slate-600 uppercase">Estado Crítico</div>
+                      <div className="text-sm font-black text-rose-500">{item.cantidad_actual} / {item.cantidad_minima}</div>
+                      <div className="text-xs font-bold text-slate-600 uppercase">Estado Crítico</div>
                     </div>
                   </div>
 
@@ -396,7 +397,7 @@ const DashboardPage = () => {
                   ) : (
                     <button
                       onClick={() => setRestockItem({ id: item.id, amount: '' })}
-                      className="w-full mt-2 py-2 border border-brand-yellow/20 rounded-xl text-[10px] font-black text-brand-yellow hover:bg-brand-yellow/10 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
+                      className="w-full mt-2 py-2 border border-brand-yellow/20 rounded-xl text-sm font-black text-brand-yellow hover:bg-brand-yellow/10 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
                     >
                       <Package size={14} /> Reabastecer Insumo
                     </button>
@@ -406,7 +407,7 @@ const DashboardPage = () => {
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center opacity-30">
                 <CheckCircle size={40} className="mb-4 text-brand-teal" />
-                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Todo el inventario está en orden</p>
+                <p className="text-sm font-black uppercase tracking-widest text-slate-400">Todo el inventario está en orden</p>
               </div>
             )}
           </div>
