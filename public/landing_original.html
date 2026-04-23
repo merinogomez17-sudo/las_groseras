@@ -109,13 +109,12 @@
 
     /* ── HERO ── */
     #hero {
-      height: 100vh;
-      min-height: 600px;
+      min-height: 165vh;
       position: relative;
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      justify-content: flex-end;
+      justify-content: flex-start;
       background: var(--dark);
       font-weight: 200;
     }
@@ -131,12 +130,12 @@
       pointer-events: none;
     }
 
-    /* Ghost text — visible al 75%+ */
+    /* Ghost text — centrado verticalmente en ~18% del viewport */
     .hero-bg-text {
       position: absolute;
-      top: 4%;
+      top: 18vh;
       left: 50%;
-      transform: translateX(-50%);
+      transform: translateX(-50%) translateY(-50%);
       font-family: 'Lobster', cursive;
       font-size: 16vw;
       letter-spacing: 0.02em;
@@ -149,14 +148,14 @@
       z-index: 1;
     }
 
-    /* Imagen de bebidas — centrada en el hero */
+    /* Imagen de bebidas — centrada en ~55% del viewport */
     .hero-drinks-wrap {
       position: absolute;
       z-index: 2;
       width: 100%;
-      top: 50%;
+      top: 55vh;
       left: 0;
-      transform: translateY(-54%);
+      transform: translateY(-50%);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -183,16 +182,16 @@
       pointer-events: none;
     }
 
-    /* Copy — pegado al fondo del hero */
+    /* Copy — empieza debajo del fold, se ve al scrollear */
     .hero-copy {
       position: relative;
       z-index: 4;
       display: grid;
       grid-template-columns: 1fr 1fr;
       align-items: flex-end;
-      padding: 0 80px 36px;
+      padding: 0 80px 48px;
       gap: 60px;
-      margin-top: auto;
+      margin-top: 100vh;
       font-weight: 100;
     }
 
@@ -995,8 +994,9 @@
 
     /* ── TABLET (769px – 1024px) ── */
     @media (min-width: 769px) and (max-width: 1024px) {
-      #hero { height: 100vh; min-height: 600px; }
-      .hero-bg-text { font-size: 18vw; top: 5%; }
+      #hero { min-height: 165vh; }
+      .hero-bg-text { font-size: 18vw; top: 17vh; }
+      .hero-drinks-wrap { top: 54vh; }
       .hero-drinks-wrap img { width: 88%; }
       .hero-copy { padding: 0 48px 32px; gap: 40px; }
       h1.headline { font-size: clamp(32px, 3.8vw, 54px); }
@@ -1022,19 +1022,18 @@
       }
 
       #hero {
-        height: 100svh;
-        min-height: 500px;
+        min-height: 160vh;
       }
 
       .hero-bg-text {
-        font-size: 24vw;
-        top: 8%;
+        font-size: 26vw;
+        top: 16vh;
         -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.75);
       }
 
       .hero-drinks-wrap {
-        top: 48%;
-        transform: translateY(-52%);
+        top: 52vh;
+        transform: translateY(-50%);
       }
 
       .hero-drinks-wrap img {
@@ -1099,8 +1098,12 @@
     @media (max-width: 480px) {
       .hero-bg-text {
         font-size: 28vw;
-        top: 6%;
+        top: 14vh;
         letter-spacing: 0;
+      }
+
+      .hero-drinks-wrap {
+        top: 50vh;
       }
 
       .hero-drinks-wrap img {
@@ -1129,8 +1132,8 @@
 
     /* ── PANTALLA GRANDE (≥ 1400px) ── */
     @media (min-width: 1400px) {
-      #hero { height: 100vh; }
-      .hero-bg-text { font-size: 14vw; top: 3%; }
+      .hero-bg-text { font-size: 14vw; top: 18vh; }
+      .hero-drinks-wrap { top: 56vh; }
       .hero-drinks-wrap img { width: 70%; max-width: 1400px; }
       .hero-copy { padding: 0 120px 48px; gap: 80px; }
       h1.headline { font-size: clamp(54px, 4.5vw, 80px); }
@@ -1139,7 +1142,8 @@
 
     /* ── PANTALLA MUY GRANDE (≥ 1920px) ── */
     @media (min-width: 1920px) {
-      .hero-bg-text { font-size: 12vw; }
+      .hero-bg-text { font-size: 12vw; top: 20vh; }
+      .hero-drinks-wrap { top: 58vh; }
       .hero-drinks-wrap img { width: 60%; max-width: 1600px; }
       .hero-copy { padding: 0 160px 64px; }
       section { padding: 140px 160px; }
