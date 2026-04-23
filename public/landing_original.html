@@ -6,8 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Las Groseras Las Micheladas Más Perras</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Lobster&family=Nunito:wght@400;600;700;800;900&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Josefin+Sans:wght@400;600;700&family=Lobster&family=Nunito:wght@400;600;700;800;900&display=swap"
     rel="stylesheet">
   <style>
     :root {
@@ -35,7 +36,7 @@
     body {
       background: var(--dark);
       color: var(--text);
-      font-family: 'Nunito', sans-serif;
+      font-family: 'Josefin Sans', sans-serif;
       overflow-x: hidden;
     }
 
@@ -465,16 +466,47 @@
     .servicios-carousel {
       position: relative;
       overflow: hidden;
+      padding: 16px 0 8px;
     }
 
     .servicios-track {
       display: flex;
+      gap: 20px;
       transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+      /* muestra 3 tarjetas: la central ocupa ~50%, las laterales ~25% c/u */
+      padding: 0 calc(25% + 10px);
     }
 
     .servicios-track .servicio-card {
-      flex: 0 0 100%;
+      flex: 0 0 50%;
       min-width: 0;
+      transition: opacity 0.4s ease, transform 0.4s ease, filter 0.4s ease;
+      opacity: 0.35;
+      filter: blur(2px);
+      transform: scale(0.92);
+      cursor: pointer;
+    }
+
+    .servicios-track .servicio-card.active {
+      opacity: 1;
+      filter: blur(0);
+      transform: scale(1);
+    }
+
+    /* Colores de fondo por tarjeta */
+    .servicio-card.c1 {
+      background: linear-gradient(135deg, #0d2e2b 0%, #1a1a24 100%);
+      border-color: rgba(46, 196, 182, 0.35);
+    }
+
+    .servicio-card.c2 {
+      background: linear-gradient(135deg, #2e1f00 0%, #1a1a24 100%);
+      border-color: rgba(244, 162, 0, 0.35);
+    }
+
+    .servicio-card.c3 {
+      background: linear-gradient(135deg, #2e0d0d 0%, #1a1a24 100%);
+      border-color: rgba(230, 48, 48, 0.35);
     }
 
     .carousel-controls {
@@ -543,7 +575,7 @@
 
     /* Menu styles */
     .menu-section {
-      margin-top: 0;
+      margin-top: 5px;
     }
 
     .menu-title {
@@ -563,7 +595,7 @@
     }
 
     .menu-col-label {
-      font-size: 12px;
+      font-size: 17px;
       font-weight: 800;
       letter-spacing: 2px;
       text-transform: uppercase;
@@ -583,7 +615,7 @@
       flex-direction: column;
       padding-bottom: 10px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      font-size: 14px;
+      font-size: 19px;
     }
 
     .menu-list li:last-child {
@@ -597,7 +629,7 @@
 
     .menu-list li span {
       color: var(--muted);
-      font-size: 12px;
+      font-size: 17px;
       font-weight: 600;
       margin-top: 2px;
     }
@@ -1436,7 +1468,7 @@
       padding: 8px;
       font-size: 13px;
       font-weight: 600;
-      font-family: 'Nunito', sans-serif;
+      font-family: 'Josefin Sans', sans-serif;
     }
 
     .tweak-row input[type=color] {
@@ -1921,21 +1953,35 @@
     // ── CARRUSEL SERVICIOS ──
     (function () {
       const track = document.getElementById('serviciosTrack');
-      const dots = document.querySelectorAll('#serviciosDots .carousel-dot');
-      const prev = document.getElementById('serviciosPrev');
-      const next = document.getElementById('serviciosNext');
+      const cards = track.querySelectorAll('.servicio-card');
+      const dots  = document.querySelectorAll('#serviciosDots .carousel-dot');
+      const prev  = document.getElementById('serviciosPrev');
+      const next  = document.getElementById('serviciosNext');
       let current = 0;
-      const total = dots.length;
+      const total = cards.length;
 
       function goTo(idx) {
         current = (idx + total) % total;
-        track.style.transform = `translateX(-${current * 100}%)`;
-        dots.forEach((d, i) => d.classList.toggle('active', i === current));
+
+        // Cada tarjeta ocupa 50% del track + gap 20px
+        // Centramos la activa: desplazamiento = índice × (50% + 20px) - offset para centrar
+        const cardW = track.parentElement.offsetWidth * 0.5 + 20;
+        const offset = (track.parentElement.offsetWidth * 0.25) - 10; // padding del track
+        track.style.transform = `translateX(${-current * cardW}px)`;
+
+        cards.forEach((c, i) => c.classList.toggle('active', i === current));
+        dots.forEach((d, i)  => d.classList.toggle('active', i === current));
       }
+
+      // Init
+      cards[0].classList.add('active');
 
       prev.addEventListener('click', () => goTo(current - 1));
       next.addEventListener('click', () => goTo(current + 1));
       dots.forEach((d, i) => d.addEventListener('click', () => goTo(i)));
+
+      // Click en tarjeta lateral navega a ella
+      cards.forEach((c, i) => c.addEventListener('click', () => { if (i !== current) goTo(i); }));
 
       // Swipe en móvil
       let startX = 0;
