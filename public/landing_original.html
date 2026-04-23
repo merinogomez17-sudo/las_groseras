@@ -465,32 +465,31 @@
     /* ── CARRUSEL SERVICIOS ── */
     .servicios-carousel {
       position: relative;
-      overflow: hidden;
-      padding: 16px 0 8px;
+      width: 100%;
+      padding: 8px 0 0;
     }
 
     .servicios-track {
       display: flex;
-      gap: 20px;
-      transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
-      /* muestra 3 tarjetas: la central ocupa ~50%, las laterales ~25% c/u */
-      padding: 0 calc(25% + 10px);
+      gap: 16px;
+      /* Sin transform — el track no se mueve, solo cambia el estado visual */
     }
 
     .servicios-track .servicio-card {
-      flex: 0 0 50%;
+      flex: 1;
       min-width: 0;
       transition: opacity 0.4s ease, transform 0.4s ease, filter 0.4s ease;
-      opacity: 0.35;
-      filter: blur(2px);
-      transform: scale(0.92);
+      opacity: 0.38;
+      filter: blur(3px);
+      transform: scale(0.93);
       cursor: pointer;
     }
 
     .servicios-track .servicio-card.active {
       opacity: 1;
-      filter: blur(0);
+      filter: none;
       transform: scale(1);
+      cursor: default;
     }
 
     /* Colores de fondo por tarjeta */
@@ -716,7 +715,7 @@
     }
 
     .pkg-sub {
-      font-size: 12px;
+      font-size: 15px;
       color: var(--muted);
       font-weight: 600;
       margin-bottom: 12px;
@@ -734,7 +733,7 @@
     }
 
     .pkg-price span {
-      font-size: 14px;
+      font-size: 17px;
       color: var(--muted);
       -webkit-text-fill-color: var(--muted);
     }
@@ -754,7 +753,7 @@
       display: flex;
       align-items: flex-start;
       gap: 8px;
-      font-size: 13px;
+      font-size: 16px;
       font-weight: 700;
       color: var(--text);
       padding: 7px 0;
@@ -1148,44 +1147,40 @@
         display: none;
       }
 
-      /* ── HERO MÓVIL: layout vertical en flujo, sin absolutes encimados ── */
+      /* ── HERO MÓVIL: flujo natural, sin altura fija ── */
       #hero {
-        height: 100svh;
-        min-height: 600px;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        align-items: stretch;
-        overflow: hidden;
-        padding-top: 68px; /* espacio para el nav fijo */
+        height: auto;
+        min-height: 0;
+        display: block;
+        overflow: visible;
+        padding-top: 68px;
       }
 
-      /* "Las Groseras" — en flujo normal, centrado arriba */
+      /* "Las Groseras" — en flujo, centrado */
       .hero-bg-text {
         position: relative;
         top: auto;
         left: auto;
         transform: none;
         text-align: center;
-        font-size: 17vw;
-        padding: 8px 0 0;
-        flex-shrink: 0;
+        font-size: 14vw;
+        padding: 4px 0 0;
+        display: block;
         z-index: 1;
       }
 
-      /* Imagen — ocupa el espacio central disponible */
+      /* Imagen — tamaño natural, sin altura fija */
       .hero-drinks-wrap {
         position: relative;
         top: auto;
         left: auto;
         transform: none;
-        flex: 1;
         display: flex;
         align-items: center;
         justify-content: center;
         width: 100%;
         z-index: 2;
-        margin-top: -20px; /* se monta levemente sobre el texto */
+        margin-top: -8px;
       }
 
       .hero-drinks-wrap img {
@@ -1199,23 +1194,19 @@
         display: none;
       }
 
-      /* Glow de fondo se mantiene absoluto (solo decorativo) */
       .hero-glow-bg {
-        position: absolute;
-        inset: 0;
-        z-index: 0;
+        display: none;
       }
 
-      /* Copy — al fondo, visible sin scroll */
+      /* Copy — flujo normal debajo de la imagen */
       .hero-copy {
         position: relative;
         margin-top: 0;
         grid-template-columns: 1fr;
-        padding: 12px 20px 20px;
-        gap: 10px;
+        padding: 16px 24px 32px;
+        gap: 16px;
         z-index: 5;
-        flex-shrink: 0;
-        background: linear-gradient(to bottom, transparent, rgba(13,13,16,0.95) 30%);
+        background: none;
       }
 
       .hero-copy-right {
@@ -1223,29 +1214,30 @@
       }
 
       h1.headline {
-        font-size: clamp(30px, 9vw, 48px);
-        margin-bottom: 10px;
-        line-height: 0.9;
+        font-size: clamp(60px, 18vw, 96px);
+        margin-bottom: 20px;
+        line-height: 0.88;
       }
 
       .hero-eyebrow {
-        font-size: 10px;
-        padding: 4px 12px;
-        margin-bottom: 8px;
+        font-size: 12px;
+        padding: 6px 16px;
+        margin-bottom: 14px;
       }
 
       .hero-actions {
-        gap: 10px;
+        gap: 12px;
+        flex-wrap: wrap;
       }
 
       .btn-primary {
-        font-size: 14px;
-        padding: 12px 22px;
+        font-size: 17px;
+        padding: 16px 32px;
       }
 
       .btn-secondary {
-        font-size: 13px;
-        padding: 10px 18px;
+        font-size: 16px;
+        padding: 14px 26px;
       }
 
       /* ── RESTO DE SECCIONES MÓVIL ── */
@@ -1307,17 +1299,36 @@
       .pkg-name {
         font-size: 22px;
       }
+
+      /* Carrusel móvil: una tarjeta a la vez, compacta */
+      .servicios-track {
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .servicios-track .servicio-card {
+        display: none;
+        flex: none;
+        width: 100%;
+        opacity: 1;
+        filter: none;
+        transform: scale(1);
+        padding: 24px 20px;
+      }
+
+      .servicios-track .servicio-card.active {
+        display: block;
+      }
     }
 
     /* ── CELULAR PEQUEÑO (≤ 480px) ── */
     @media (max-width: 480px) {
       #hero {
-        min-height: 560px;
         padding-top: 60px;
       }
 
       .hero-bg-text {
-        font-size: 16vw;
+        font-size: 13vw;
       }
 
       .hero-drinks-wrap img {
@@ -1326,21 +1337,21 @@
       }
 
       .hero-copy {
-        padding: 10px 16px 16px;
+        padding: 12px 18px 28px;
       }
 
       h1.headline {
-        font-size: clamp(26px, 8.5vw, 40px);
-        margin-bottom: 8px;
+        font-size: clamp(52px, 16vw, 80px);
+        margin-bottom: 16px;
       }
 
       .hero-actions {
-        gap: 8px;
+        gap: 10px;
       }
 
       .btn-primary {
-        font-size: 13px;
-        padding: 11px 18px;
+        font-size: 15px;
+        padding: 14px 28px;
       }
 
       .btn-secondary {
@@ -1518,7 +1529,7 @@
         <h1 class="headline">
           <span class="line1">LA FIESTA</span>
           <span class="line2">EMPIEZA</span>
-          <span class="line3">CON NOSOTRAS</span>
+          <span class="line3">CON NOSOTROS</span>
         </h1>
         <div class="hero-actions">
           <a href="/reserva" class="btn-primary" target="_parent">
@@ -1953,8 +1964,8 @@
     // ── CARRUSEL SERVICIOS ──
     (function () {
       const track = document.getElementById('serviciosTrack');
-      const cards = track.querySelectorAll('.servicio-card');
-      const dots  = document.querySelectorAll('#serviciosDots .carousel-dot');
+      const cards = Array.from(track.querySelectorAll('.servicio-card'));
+      const dots  = Array.from(document.querySelectorAll('#serviciosDots .carousel-dot'));
       const prev  = document.getElementById('serviciosPrev');
       const next  = document.getElementById('serviciosNext');
       let current = 0;
@@ -1962,25 +1973,19 @@
 
       function goTo(idx) {
         current = (idx + total) % total;
-
-        // Cada tarjeta ocupa 50% del track + gap 20px
-        // Centramos la activa: desplazamiento = índice × (50% + 20px) - offset para centrar
-        const cardW = track.parentElement.offsetWidth * 0.5 + 20;
-        const offset = (track.parentElement.offsetWidth * 0.25) - 10; // padding del track
-        track.style.transform = `translateX(${-current * cardW}px)`;
-
+        // Solo cambia clases — el track no se mueve
         cards.forEach((c, i) => c.classList.toggle('active', i === current));
         dots.forEach((d, i)  => d.classList.toggle('active', i === current));
       }
 
-      // Init
-      cards[0].classList.add('active');
+      // Estado inicial
+      goTo(0);
 
       prev.addEventListener('click', () => goTo(current - 1));
       next.addEventListener('click', () => goTo(current + 1));
       dots.forEach((d, i) => d.addEventListener('click', () => goTo(i)));
 
-      // Click en tarjeta lateral navega a ella
+      // Click en tarjeta lateral la activa
       cards.forEach((c, i) => c.addEventListener('click', () => { if (i !== current) goTo(i); }));
 
       // Swipe en móvil
