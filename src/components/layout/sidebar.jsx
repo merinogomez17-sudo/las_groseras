@@ -6,7 +6,6 @@ import {
   Target,
   FileText,
   Calendar,
-  Settings as SettingsIcon,
   LogOut,
   BookOpen,
   ChevronLeft,
@@ -14,30 +13,46 @@ import {
   Sun,
   Moon,
   FlaskConical,
+  ClipboardList,
+  Settings2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../context/ThemeContext';
 
+const menuGroups = [
+  {
+    label: 'CRM',
+    items: [
+      { icon: Target,    label: 'Leads',        path: '/admin/leads' },
+      { icon: FileText,  label: 'Cotizaciones',  path: '/admin/cotizaciones' },
+      { icon: Users,     label: 'Clientes',      path: '/admin/clientes' },
+      { icon: Calendar,  label: 'Eventos',       path: '/admin/eventos' },
+    ],
+  },
+  {
+    label: 'Back Office',
+    items: [
+      { icon: Package,      label: 'Inventario', path: '/admin/inventario' },
+      { icon: FlaskConical, label: 'Insumos',    path: '/admin/insumos' },
+      { icon: BookOpen,     label: 'Costos',     path: '/admin/recetas' },
+    ],
+  },
+  {
+    label: 'Configuración',
+    items: [
+      { icon: ClipboardList, label: 'Formulario', path: '/admin/configuracion/formulario' },
+    ],
+  },
+];
+
 const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile, isMobileOpen, setIsMobileOpen }) => {
   const { isDark, toggle } = useTheme();
 
-  const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/' },
-    { icon: Package, label: 'Inventario', path: '/admin/inventario' },
-    { icon: Users, label: 'Clientes', path: '/admin/clientes' },
-    { icon: Target, label: 'Leads', path: '/admin/leads' },
-    { icon: BookOpen, label: 'Costos', path: '/admin/recetas' },
-    { icon: FlaskConical, label: 'Insumos', path: '/admin/insumos' },
-    { icon: FileText, label: 'Cotizaciones', path: '/admin/cotizaciones' },
-    { icon: Calendar, label: 'Eventos', path: '/admin/eventos' },
-    { icon: SettingsIcon, label: 'Configuración', path: '/admin/configuracion' },
-  ];
-
   const sidebarVariants = {
-    expanded: { width: '256px' },
-    collapsed: { width: '80px' },
-    mobileOpen: { x: 0, width: '256px' },
-    mobileClosed: { x: '-100%', width: '256px' }
+    expanded:    { width: '256px' },
+    collapsed:   { width: '80px' },
+    mobileOpen:  { x: 0,      width: '256px' },
+    mobileClosed:{ x: '-100%', width: '256px' },
   };
 
   const getActiveVariant = () => {
@@ -77,7 +92,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile, isMobileOpen, setIsMob
       )}
 
       {/* Header / Logo */}
-      <div className={`flex items-center gap-4 px-2 mb-10 mt-2 ${isCollapsed ? 'justify-center' : ''}`}>
+      <div className={`flex items-center gap-4 px-2 mb-6 mt-2 ${isCollapsed ? 'justify-center' : ''}`}>
         <div className="shrink-0 w-11 h-11 rounded-xl flex items-center justify-center p-1 shadow-2xl"
           style={{ background: 'rgb(var(--brand-yellow) / 0.1)', border: '1px solid rgb(var(--brand-yellow) / 0.2)' }}>
           <img src="/logo.png" alt="Las Groseras" className="w-full h-full object-contain" />
@@ -105,51 +120,108 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile, isMobileOpen, setIsMob
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 w-full">
-        {menuItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.path === '/admin/'}
-            onClick={() => isMobile && setIsMobileOpen(false)}
-            className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 relative group ${isCollapsed ? 'justify-center px-0' : ''}`}
-            style={({ isActive }) => isActive ? {
-              background: 'rgb(var(--brand-yellow) / 0.15)',
-              color: 'rgb(var(--brand-yellow))',
-              boxShadow: '0 0 20px rgb(var(--brand-yellow) / 0.12)',
-              border: '1px solid rgb(var(--brand-yellow) / 0.25)',
-            } : {
-              color: 'rgb(var(--brand-cream) / 0.5)',
-              border: '1px solid transparent',
-            }}
-          >
-            {({ isActive }) => (
-              <>
-                <item.icon size={18} className="shrink-0"
-                  style={{ color: isActive ? 'rgb(var(--brand-yellow))' : 'rgb(var(--brand-cream) / 0.45)' }} />
-
-                <AnimatePresence>
-                  {!isCollapsed && (
-                    <motion.span
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      className="text-sm whitespace-nowrap overflow-hidden font-sans font-semibold tracking-wide"
-                    >
-                      {item.label}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-
-                {isCollapsed && !isMobile && (
-                  <div className="absolute left-full ml-4 px-3 py-1.5 text-[11px] font-semibold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 shadow-xl"
-                    style={{ background: 'rgb(var(--brand-yellow))', color: 'rgb(var(--brand-dark))' }}>
-                    {item.label}
-                  </div>
+      <nav className="flex-1 w-full overflow-y-auto custom-scrollbar space-y-4">
+        {/* Dashboard siempre primero */}
+        <NavLink
+          to="/admin/"
+          end
+          onClick={() => isMobile && setIsMobileOpen(false)}
+          className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 relative group ${isCollapsed ? 'justify-center px-0' : ''}`}
+          style={({ isActive }) => isActive ? {
+            background: 'rgb(var(--brand-yellow) / 0.15)',
+            color: 'rgb(var(--brand-yellow))',
+            boxShadow: '0 0 20px rgb(var(--brand-yellow) / 0.12)',
+            border: '1px solid rgb(var(--brand-yellow) / 0.25)',
+          } : {
+            color: 'rgb(var(--brand-cream) / 0.5)',
+            border: '1px solid transparent',
+          }}
+        >
+          {({ isActive }) => (
+            <>
+              <LayoutDashboard size={18} className="shrink-0"
+                style={{ color: isActive ? 'rgb(var(--brand-yellow))' : 'rgb(var(--brand-cream) / 0.45)' }} />
+              <AnimatePresence>
+                {!isCollapsed && (
+                  <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}
+                    className="text-sm whitespace-nowrap overflow-hidden font-sans font-semibold tracking-wide">
+                    Dashboard
+                  </motion.span>
                 )}
-              </>
+              </AnimatePresence>
+              {isCollapsed && !isMobile && (
+                <div className="absolute left-full ml-4 px-3 py-1.5 text-[11px] font-semibold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 shadow-xl"
+                  style={{ background: 'rgb(var(--brand-yellow))', color: 'rgb(var(--brand-dark))' }}>
+                  Dashboard
+                </div>
+              )}
+            </>
+          )}
+        </NavLink>
+
+        {/* Grupos */}
+        {menuGroups.map((group) => (
+          <div key={group.label}>
+            {/* Etiqueta de grupo */}
+            <AnimatePresence>
+              {!isCollapsed && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="text-[9px] font-black tracking-[0.3em] uppercase px-4 mb-1.5"
+                  style={{ color: 'rgb(var(--brand-cream) / 0.25)' }}
+                >
+                  {group.label}
+                </motion.p>
+              )}
+            </AnimatePresence>
+
+            {isCollapsed && (
+              <div className="w-full h-px mb-2" style={{ background: 'rgb(var(--brand-cream) / 0.08)' }} />
             )}
-          </NavLink>
+
+            <div className="space-y-0.5">
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => isMobile && setIsMobileOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 relative group ${isCollapsed ? 'justify-center px-0' : ''}`}
+                  style={({ isActive }) => isActive ? {
+                    background: 'rgb(var(--brand-yellow) / 0.15)',
+                    color: 'rgb(var(--brand-yellow))',
+                    boxShadow: '0 0 20px rgb(var(--brand-yellow) / 0.12)',
+                    border: '1px solid rgb(var(--brand-yellow) / 0.25)',
+                  } : {
+                    color: 'rgb(var(--brand-cream) / 0.5)',
+                    border: '1px solid transparent',
+                  }}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <item.icon size={18} className="shrink-0"
+                        style={{ color: isActive ? 'rgb(var(--brand-yellow))' : 'rgb(var(--brand-cream) / 0.45)' }} />
+                      <AnimatePresence>
+                        {!isCollapsed && (
+                          <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}
+                            className="text-sm whitespace-nowrap overflow-hidden font-sans font-semibold tracking-wide">
+                            {item.label}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                      {isCollapsed && !isMobile && (
+                        <div className="absolute left-full ml-4 px-3 py-1.5 text-[11px] font-semibold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 shadow-xl"
+                          style={{ background: 'rgb(var(--brand-yellow))', color: 'rgb(var(--brand-dark))' }}>
+                          {item.label}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
@@ -167,18 +239,11 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile, isMobileOpen, setIsMob
             background: 'rgb(var(--brand-teal) / 0.08)',
           }}
         >
-          {isDark
-            ? <Sun size={18} className="shrink-0" />
-            : <Moon size={18} className="shrink-0" />
-          }
+          {isDark ? <Sun size={18} className="shrink-0" /> : <Moon size={18} className="shrink-0" />}
           <AnimatePresence>
             {!isCollapsed && (
-              <motion.span
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                className="font-semibold text-sm whitespace-nowrap overflow-hidden font-sans tracking-wide"
-              >
+              <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}
+                className="font-semibold text-sm whitespace-nowrap overflow-hidden font-sans tracking-wide">
                 {isDark ? 'Modo Claro' : 'Modo Oscuro'}
               </motion.span>
             )}
@@ -215,12 +280,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile, isMobileOpen, setIsMob
           <LogOut size={18} className="shrink-0" />
           <AnimatePresence>
             {!isCollapsed && (
-              <motion.span
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                className="font-semibold text-sm whitespace-nowrap overflow-hidden font-sans tracking-wide"
-              >
+              <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}
+                className="font-semibold text-sm whitespace-nowrap overflow-hidden font-sans tracking-wide">
                 Cerrar sesión
               </motion.span>
             )}

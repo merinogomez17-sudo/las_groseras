@@ -17,7 +17,16 @@
       "Bash(node -e ' *)",
       "Bash(node scripts/seed_insumos.js)",
       "Bash(mv scripts/seed_insumos.js scripts/seed_insumos.cjs)",
-      "Bash(node scripts/seed_insumos.cjs)"
+      "Bash(node scripts/seed_insumos.cjs)",
+      "WebSearch",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "PowerShell(claude mcp add --transport stdio stitch -- npx -y \"@_davideast/stitch-mcp\" proxy)",
+      "PowerShell(claude mcp add stitch --transport stdio -- npx \"@_davideast/stitch-mcp\" proxy)",
+      "PowerShell(claude mcp list)",
+      "PowerShell(node --version)",
+      "PowerShell(npx \"@_davideast/stitch-mcp\" proxy 2>&1)",
+      "PowerShell(head -5)"
     ]
   }
 }

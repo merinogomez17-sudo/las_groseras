@@ -38,7 +38,7 @@
 
   body {
     @apply bg-brand-dark text-brand-cream min-h-screen;
-    font-size: 17px;
+    font-size: 19px;
     font-family: 'Josefin Sans', sans-serif;
     background-image:
       radial-gradient(ellipse at 20% 50%, var(--body-glow-yellow) 0%, transparent 60%),
