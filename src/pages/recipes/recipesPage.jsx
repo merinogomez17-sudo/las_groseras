@@ -395,12 +395,12 @@ const RecipesPage = () => {
 
               <div className="mb-8 border-b border-white/10 pb-6">
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="px-3 py-1 rounded bg-brand-red/10 text-brand-red text-[10px] font-black tracking-widest">
+                  <span className="px-3 py-1 rounded bg-brand-red/10 text-brand-red text-sm font-black tracking-widest">
                     {selectedRecipe.categoria}
                   </span>
                 </div>
                 <h2 className="text-4xl font-black text-white tracking-tighter">{selectedRecipe.nombre}</h2>
-                <p className="text-slate-500 text-[10px] font-black tracking-[0.2em] mt-1">Desglose detallado de ingredientes y costos</p>
+                <p className="text-slate-500 text-sm font-black tracking-[0.2em] mt-1">Desglose detallado de ingredientes y costos</p>
               </div>
 
               <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
@@ -411,15 +411,15 @@ const RecipesPage = () => {
                         {idx + 1}
                       </div>
                       <div>
-                        <div className="font-black text-sm text-white">{item.insumo_nombre_manual || (item.insumos ? `${item.insumos.marca} (${item.insumos.presentacion})` : 'Insumo desconocido')}</div>
-                        <div className="text-[10px] text-slate-500 font-bold">
+                        <div className="font-black text-base text-white">{item.insumo_nombre_manual || (item.insumos ? `${item.insumos.marca} (${item.insumos.presentacion})` : 'Insumo desconocido')}</div>
+                        <div className="text-sm text-slate-500 font-bold">
                           {item.cantidad} {item.unidad}
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs font-black text-emerald-400">${item.costo_proporcional?.toFixed(2)}</div>
-                      <div className="text-[9px] text-slate-600 font-bold">Costo inv</div>
+                      <div className="text-base font-black text-emerald-400">${item.costo_proporcional?.toFixed(2)}</div>
+                      <div className="text-xs text-slate-600 font-bold">Costo inv</div>
                     </div>
                   </div>
                 ))}
@@ -427,17 +427,17 @@ const RecipesPage = () => {
 
               <div className="mt-8 pt-6 border-t border-white/10 flex justify-between items-center">
                 <div>
-                  <p className="text-[10px] font-black text-slate-500 tracking-widest">Total Bebida</p>
+                  <p className="text-sm font-black text-slate-500 tracking-widest">Total Bebida</p>
                   <p className="text-3xl font-black text-white tracking-tighter mt-1">${selectedRecipe.costo_total?.toFixed(2)}</p>
                 </div>
                 <div className="flex gap-4">
-                  <button onClick={() => setIsModalOpen(false)} className="btn-secondary px-8 font-black text-[10px]">Cerrar</button>
+                  <button onClick={() => setIsModalOpen(false)} className="btn-secondary px-8 font-black text-sm">Cerrar</button>
                   <button 
                     onClick={() => openEditor(selectedRecipe)}
                     className="btn-primary px-8 group"
                   >
                     <Edit2 size={18} className="stroke-[3px]" />
-                    <span className="font-black">Editar fórmula</span>
+                    <span className="font-black text-sm">Editar fórmula</span>
                   </button>
                 </div>
               </div>
