@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Package, Search, Plus, Filter, Download,
   AlertTriangle, TrendingUp,
   Edit2, Trash2, X, Save, RefreshCw, Calculator,
-  Layers, Info
+  Layers, Info, ShoppingCart, Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
@@ -23,25 +23,83 @@ const EMPTY_FORM = {
   precio_unitario: 0, piezas_por_unidad: 1, proveedor: '', notas: ''
 };
 
+const EMPTY_INSUMO = {
+  tipo_insumo: 'Alcohol', marca: '', presentacion: '', precio_promedio: '', ml_gr_pieza: ''
+};
+
+const PANEL = { NONE: null, FORM: 'form', COMPRA: 'compra' };
+
+const TIPOS = [
+  'Adicionales - dulces', 'Alcohol', 'Cerveza', 'Energizante',
+  'Insumo secreto', 'Jarabe', 'MP indirecta', 'Otros',
+  'Polvo para escarchar', 'Pulpa liquida', 'Pulpa para escarchar',
+  'Refresco', 'Salsas', 'Vasos'
+];
+
+const fmt = (n) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 const InventoryPage = () => {
   const [items, setItems]                   = useState([]);
   const [loading, setLoading]               = useState(true);
   const [searchTerm, setSearchTerm]         = useState('');
   const [categoryFilter, setCategoryFilter] = useState('Todas');
-  const [panelOpen, setPanelOpen]           = useState(false);
+  const [panel, setPanel]                   = useState(PANEL.NONE);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [editingItem, setEditingItem]       = useState(null);
   const [formData, setFormData]             = useState(EMPTY_FORM);
   const [expandedProducts, setExpandedProducts] = useState({});
 
+  // Registro de compra
+  const [insumos, setInsumos]                 = useState([]);
+  const [compras, setCompras]                 = useState([]);
+  const [loadingCompras, setLoadingCompras]   = useState(false);
+  const [compraSearch, setCompraSearch]       = useState('');
+  const [selectedInsumo, setSelectedInsumo]   = useState(null);
+  const [showNewInComp, setShowNewInComp]     = useState(false);
+  const [insumoForm, setInsumoForm]           = useState(EMPTY_INSUMO);
+  const [compraForm, setCompraForm]           = useState({
+    cantidad_comprada: '', precio_total_compra: '',
+    fecha_compra: new Date().toISOString().split('T')[0]
+  });
+  const [savingCompra, setSavingCompra]       = useState(false);
+
   useEffect(() => {
     fetchInventory();
+    fetchCompras();
+    fetchInsumos();
     const subscription = supabase
       .channel('inventory_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventario' }, () => fetchInventory())
       .subscribe();
     return () => supabase.removeChannel(subscription);
   }, []);
+
+  const fetchInsumos = async () => {
+    try {
+      const { data, error } = await supabase.from('insumos').select('*').order('marca');
+      if (error) throw error;
+      setInsumos(data || []);
+    } catch (e) {
+      console.error('Error fetching insumos:', e);
+    }
+  };
+
+  const fetchCompras = async () => {
+    setLoadingCompras(true);
+    try {
+      const { data, error } = await supabase
+        .from('compras')
+        .select('*, insumos(marca, presentacion, tipo_insumo)')
+        .order('fecha_compra', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      setCompras(data || []);
+    } catch (error) {
+      toast.error('Error al cargar compras: ' + error.message);
+    } finally {
+      setLoadingCompras(false);
+    }
+  };
 
   const fetchInventory = async () => {
     setLoading(true);
@@ -72,10 +130,22 @@ const InventoryPage = () => {
       setEditingItem(null);
       setFormData(EMPTY_FORM);
     }
-    setPanelOpen(true);
+    setPanel(PANEL.FORM);
   };
 
-  const closePanel = () => setPanelOpen(false);
+  const openCompra = () => {
+    setCompraSearch('');
+    setSelectedInsumo(null);
+    setShowNewInComp(false);
+    setInsumoForm(EMPTY_INSUMO);
+    setCompraForm({
+      cantidad_comprada: '', precio_total_compra: '',
+      fecha_compra: new Date().toISOString().split('T')[0]
+    });
+    setPanel(PANEL.COMPRA);
+  };
+
+  const closePanel = () => setPanel(PANEL.NONE);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -107,6 +177,55 @@ const InventoryPage = () => {
       fetchInventory();
     } catch (error) {
       toast.error('Error: ' + error.message);
+    }
+  };
+
+  // ── Registrar Compra ─────────────────────────────────────────
+  const searchResults = useMemo(() => {
+    if (!compraSearch || compraSearch.length < 2) return [];
+    const q = compraSearch.toLowerCase();
+    return insumos.filter(i =>
+      i.marca.toLowerCase().includes(q) ||
+      i.tipo_insumo.toLowerCase().includes(q) ||
+      i.presentacion.toLowerCase().includes(q)
+    ).slice(0, 8);
+  }, [compraSearch, insumos]);
+
+  const handleSaveCompra = async (e) => {
+    e.preventDefault();
+    setSavingCompra(true);
+    try {
+      let insumoId = selectedInsumo?.id;
+
+      if (showNewInComp) {
+        const payload = {
+          tipo_insumo:     insumoForm.tipo_insumo,
+          marca:           insumoForm.marca.trim(),
+          presentacion:    insumoForm.presentacion.trim(),
+          precio_promedio: parseFloat(insumoForm.precio_promedio) || 0,
+          ml_gr_pieza:     parseFloat(insumoForm.ml_gr_pieza),
+        };
+        const { data, error } = await supabase.from('insumos').insert([payload]).select().single();
+        if (error) throw error;
+        insumoId = data.id;
+      }
+
+      const { error } = await supabase.from('compras').insert([{
+        insumo_id:           insumoId,
+        fecha_compra:        compraForm.fecha_compra,
+        cantidad_comprada:   parseFloat(compraForm.cantidad_comprada),
+        precio_total_compra: parseFloat(compraForm.precio_total_compra),
+      }]);
+      if (error) throw error;
+
+      toast.success('Compra registrada correctamente');
+      closePanel();
+      fetchCompras();
+      fetchInsumos(); // Refresh insumos to update price/stock if triggers exist
+    } catch (e) {
+      toast.error('Error: ' + e.message);
+    } finally {
+      setSavingCompra(false);
     }
   };
 
@@ -210,11 +329,18 @@ const InventoryPage = () => {
           <p className="text-slate-500 text-[15px] font-bold tracking-[0.2em] mt-1">Gestión de stock</p>
         </div>
         <div className="flex flex-wrap gap-4 w-full lg:w-auto">
-          <button className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 transition-all" onClick={fetchInventory}>
+          <button className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 transition-all" onClick={() => { fetchInventory(); fetchCompras(); }}>
             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
           </button>
           <button
-            className={`btn-primary shadow-xl shadow-brand-red/40 px-6 py-3 flex-1 sm:flex-none justify-center ${panelOpen && !editingItem ? 'ring-2 ring-brand-red/50' : ''}`}
+            onClick={openCompra}
+            className={`btn-secondary shadow-xl shadow-brand-yellow/10 px-6 py-3 flex-1 sm:flex-none justify-center ${panel === PANEL.COMPRA ? 'ring-2 ring-brand-yellow/50' : ''}`}
+          >
+            <ShoppingCart size={20} />
+            <span className="font-black">Registrar Compra</span>
+          </button>
+          <button
+            className={`btn-primary shadow-xl shadow-brand-red/40 px-6 py-3 flex-1 sm:flex-none justify-center ${panel === PANEL.FORM && !editingItem ? 'ring-2 ring-brand-red/50' : ''}`}
             onClick={() => openPanel()}
           >
             <Plus size={20} className="stroke-[3px]" />
@@ -286,10 +412,10 @@ const InventoryPage = () => {
               <thead className="bg-white/[0.02] border-b border-white/5">
                 <tr>
                   <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Insumo & Presentación</th>
-                  {!panelOpen && <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Categoría</th>}
+                  {panel === PANEL.NONE && <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Categoría</th>}
                   <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Stock</th>
-                  {!panelOpen && <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500 text-center">Pzas/U</th>}
-                  {!panelOpen && <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Precios</th>}
+                  {panel === PANEL.NONE && <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500 text-center">Pzas/U</th>}
+                  {panel === PANEL.NONE && <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Precios</th>}
                   <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500 text-right">Acción</th>
                 </tr>
               </thead>
@@ -312,7 +438,7 @@ const InventoryPage = () => {
                           </div>
                         </div>
                       </td>
-                      {!panelOpen && (
+                      {panel === PANEL.NONE && (
                         <td className="px-6 py-5">
                           <span className="px-3 py-1.5 rounded-lg bg-white/5 text-[12px] font-black tracking-widest text-slate-400 border border-white/5">
                             {product.category}
@@ -325,8 +451,8 @@ const InventoryPage = () => {
                           {product.hasAlert && <AlertTriangle size={13} className="animate-bounce" />}
                         </div>
                       </td>
-                      {!panelOpen && <td className="px-6 py-5 text-center text-slate-500">—</td>}
-                      {!panelOpen && <td className="px-6 py-5 text-slate-500 text-[14px]">Agrupado</td>}
+                      {panel === PANEL.NONE && <td className="px-6 py-5 text-center text-slate-500">—</td>}
+                      {panel === PANEL.NONE && <td className="px-6 py-5 text-slate-500 text-[14px]">Agrupado</td>}
                       <td className="px-6 py-5 text-right">
                         <div className="text-slate-600 group-hover:text-brand-red transition-colors font-black text-[12px] tracking-widest">
                           {expandedProducts[product.name] ? 'Cerrar' : 'Ver'}
@@ -349,20 +475,20 @@ const InventoryPage = () => {
                               <div className="font-bold text-slate-200 text-base">{item.formato || 'Estándar'}</div>
                               <div className="text-[11px] text-slate-500 font-bold">{item.proveedor || 'S/N'}</div>
                             </td>
-                            {!panelOpen && <td className="px-6 py-4" />}
+                            {panel === PANEL.NONE && <td className="px-6 py-4" />}
                             <td className="px-6 py-4">
                               <div className={`text-base font-black tracking-tighter ${item.cantidad_actual <= item.cantidad_minima ? 'text-brand-red' : 'text-slate-300'}`}>
                                 {item.cantidad_actual} <span className="opacity-40">{item.unidad}</span>
                               </div>
                             </td>
-                            {!panelOpen && (
+                            {panel === PANEL.NONE && (
                               <td className="px-6 py-4 text-center">
                                 <div className="bg-white/5 py-1 px-2 rounded-lg inline-block border border-white/5 text-[13px] font-black text-slate-400">
                                   x {item.piezas_por_unidad || 1}
                                 </div>
                               </td>
                             )}
-                            {!panelOpen && (
+                            {panel === PANEL.NONE && (
                               <td className="px-6 py-4">
                                 <div className="text-[14px] font-black text-emerald-400/80">${item.precio_unitario?.toLocaleString()}</div>
                                 <div className="text-[11px] font-bold text-slate-500">Unitario: ${unitPrice.toFixed(2)}</div>
@@ -389,11 +515,62 @@ const InventoryPage = () => {
               </tbody>
             </table>
           </div>
+
+          {/* HISTORIAL DE COMPRAS (Nuevo) */}
+          <div className="mt-8 border-t border-white/5 pt-8 px-6 pb-6">
+            <h3 className="text-xl font-black text-white tracking-tighter mb-4 flex items-center gap-3">
+              <ShoppingCart size={20} className="text-brand-yellow" />
+              Historial de Compras Recientes
+            </h3>
+            <div className="overflow-x-auto rounded-2xl border border-white/5">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-white/[0.02]">
+                  <tr>
+                    <th className="px-4 py-3 text-[11px] font-black tracking-widest text-slate-500">Fecha</th>
+                    <th className="px-4 py-3 text-[11px] font-black tracking-widest text-slate-500">Insumo</th>
+                    <th className="px-4 py-3 text-[11px] font-black tracking-widest text-slate-500">Presentación</th>
+                    <th className="px-4 py-3 text-[11px] font-black tracking-widest text-slate-500 text-right">Cantidad</th>
+                    <th className="px-4 py-3 text-[11px] font-black tracking-widest text-slate-500 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.03]">
+                  {loadingCompras ? (
+                    <tr>
+                      <td colSpan="5" className="px-4 py-8 text-center text-slate-500">Cargando compras...</td>
+                    </tr>
+                  ) : compras.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-4 py-8 text-center text-slate-500 italic">No hay compras registradas recientemente</td>
+                    </tr>
+                  ) : compras.map(compra => (
+                    <tr key={compra.id} className="hover:bg-white/[0.01] transition-colors">
+                      <td className="px-4 py-3 text-sm text-slate-400 flex items-center gap-2">
+                        <Calendar size={12} />
+                        {new Date(compra.fecha_compra).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-bold text-slate-200">
+                        {compra.insumos?.marca}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {compra.insumos?.presentacion}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-black text-emerald-400 text-right">
+                        {compra.cantidad_comprada}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-bold text-slate-300 text-right">
+                        ${fmt(compra.precio_total_compra)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
         {/* PANEL DERECHO */}
         <AnimatePresence>
-          {panelOpen && (
+          {panel !== PANEL.NONE && (
             <motion.div
               key="inventory-panel"
               initial={{ opacity: 0, x: 32 }}
@@ -407,92 +584,247 @@ const InventoryPage = () => {
                   <X size={20} />
                 </button>
 
-                <h2 className="text-xl font-black text-white tracking-tighter mb-1 flex items-center gap-3">
-                  {editingItem ? <Edit2 size={20} className="text-emerald-400" /> : <Plus size={20} className="text-brand-red" />}
-                  {editingItem ? 'Editar insumo' : 'Nuevo insumo'}
-                </h2>
-                <p className="text-slate-500 text-[12px] font-black tracking-[0.2em] mb-6">Stock y costos unitarios</p>
+                {panel === PANEL.FORM && (
+                  <>
+                    <h2 className="text-xl font-black text-white tracking-tighter mb-1 flex items-center gap-3">
+                      {editingItem ? <Edit2 size={20} className="text-emerald-400" /> : <Plus size={20} className="text-brand-red" />}
+                      {editingItem ? 'Editar insumo' : 'Nuevo insumo'}
+                    </h2>
+                    <p className="text-slate-500 text-[12px] font-black tracking-[0.2em] mb-6">Stock y costos unitarios</p>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Producto Base</label>
-                      <input required type="text" list="base-product-list" placeholder="Ej: Cerveza Corona"
-                        className="input-field bg-white/5 border-white/10"
-                        value={formData.producto_base} onChange={(e) => handleBaseNameChange(e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Formato</label>
-                      <input required type="text" placeholder="Ej: 355ml"
-                        className="input-field bg-white/5 border-white/10"
-                        value={formData.formato} onChange={(e) => setFormData({...formData, formato: e.target.value})} />
-                    </div>
-                  </div>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Producto Base</label>
+                          <input required type="text" list="base-product-list" placeholder="Ej: Cerveza Corona"
+                            className="input-field bg-white/5 border-white/10"
+                            value={formData.producto_base} onChange={(e) => handleBaseNameChange(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Formato</label>
+                          <input required type="text" placeholder="Ej: 355ml"
+                            className="input-field bg-white/5 border-white/10"
+                            value={formData.formato} onChange={(e) => setFormData({...formData, formato: e.target.value})} />
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Categoría</label>
-                      <select className="input-field cursor-pointer bg-white/5 border-white/10 font-bold"
-                        value={formData.categoria} onChange={(e) => setFormData({...formData, categoria: e.target.value})}>
-                        {categories.filter(c => c !== 'Todas').map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Unidad</label>
-                      <input placeholder="Pzas, Litros..." className="input-field bg-white/5 border-white/10"
-                        value={formData.unidad} onChange={(e) => setFormData({...formData, unidad: e.target.value})} />
-                    </div>
-                  </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Categoría</label>
+                          <select className="input-field cursor-pointer bg-white/5 border-white/10 font-bold"
+                            value={formData.categoria} onChange={(e) => setFormData({...formData, categoria: e.target.value})}>
+                            {categories.filter(c => c !== 'Todas').map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Unidad</label>
+                          <input placeholder="Pzas, Litros..." className="input-field bg-white/5 border-white/10"
+                            value={formData.unidad} onChange={(e) => setFormData({...formData, unidad: e.target.value})} />
+                        </div>
+                      </div>
 
-                  <div className="p-4 bg-brand-red/5 rounded-2xl border border-brand-red/20 space-y-3">
-                    <h4 className="text-[12px] font-black text-brand-red tracking-widest flex items-center gap-2">
-                      <Calculator size={13} /> Desglose de unidades
-                    </h4>
-                    <div>
-                      <label className="block text-[11px] font-black text-slate-500 mb-2">Precio de la Presentación ($)</label>
-                      <input type="number" step="0.01"
-                        className="input-field bg-white/10 border-brand-red/20 text-emerald-400 font-black"
-                        value={formData.precio_unitario}
-                        onChange={(e) => setFormData({...formData, precio_unitario: Number(e.target.value)})} />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-black text-slate-500 mb-2">¿Cuántas piezas vienen dentro?</label>
-                      <input type="number"
-                        className="input-field bg-white/10 border-brand-red/20 font-black"
-                        value={formData.piezas_por_unidad}
-                        onChange={(e) => setFormData({...formData, piezas_por_unidad: Math.max(1, Number(e.target.value))})} />
-                    </div>
-                    <div className="pt-2 border-t border-brand-red/10 flex justify-between items-center text-[13px] font-bold">
-                      <span className="text-slate-500">Costo Unitario Real:</span>
-                      <span className="text-white">${(formData.precio_unitario / (formData.piezas_por_unidad || 1)).toFixed(2)}</span>
-                    </div>
-                  </div>
+                      <div className="p-4 bg-brand-red/5 rounded-2xl border border-brand-red/20 space-y-3">
+                        <h4 className="text-[12px] font-black text-brand-red tracking-widest flex items-center gap-2">
+                          <Calculator size={13} /> Desglose de unidades
+                        </h4>
+                        <div>
+                          <label className="block text-[11px] font-black text-slate-500 mb-2">Precio de la Presentación ($)</label>
+                          <input type="number" step="0.01"
+                            className="input-field bg-white/10 border-brand-red/20 text-emerald-400 font-black"
+                            value={formData.precio_unitario}
+                            onChange={(e) => setFormData({...formData, precio_unitario: Number(e.target.value)})} />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-black text-slate-500 mb-2">¿Cuántas piezas vienen dentro?</label>
+                          <input type="number"
+                            className="input-field bg-white/10 border-brand-red/20 font-black"
+                            value={formData.piezas_por_unidad}
+                            onChange={(e) => setFormData({...formData, piezas_por_unidad: Math.max(1, Number(e.target.value))})} />
+                        </div>
+                        <div className="pt-2 border-t border-brand-red/10 flex justify-between items-center text-[13px] font-bold">
+                          <span className="text-slate-500">Costo Unitario Real:</span>
+                          <span className="text-white">${(formData.precio_unitario / (formData.piezas_por_unidad || 1)).toFixed(2)}</span>
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Stock Actual</label>
-                      <input type="number"
-                        className="input-field bg-white/5 border-white/10 font-black text-xl"
-                        value={formData.cantidad_actual}
-                        onChange={(e) => setFormData({...formData, cantidad_actual: Number(e.target.value)})} />
-                    </div>
-                    <div>
-                      <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Mínimo Crítico</label>
-                      <input type="number"
-                        className="input-field bg-white/5 border-white/10 font-bold"
-                        value={formData.cantidad_minima}
-                        onChange={(e) => setFormData({...formData, cantidad_minima: Number(e.target.value)})} />
-                    </div>
-                  </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Stock Actual</label>
+                          <input type="number"
+                            className="input-field bg-white/5 border-white/10 font-black text-xl"
+                            value={formData.cantidad_actual}
+                            onChange={(e) => setFormData({...formData, cantidad_actual: Number(e.target.value)})} />
+                        </div>
+                        <div>
+                          <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Mínimo Crítico</label>
+                          <input type="number"
+                            className="input-field bg-white/5 border-white/10 font-bold"
+                            value={formData.cantidad_minima}
+                            onChange={(e) => setFormData({...formData, cantidad_minima: Number(e.target.value)})} />
+                        </div>
+                      </div>
 
-                  <div className="flex justify-end gap-3 pt-2 border-t border-white/5">
-                    <button type="button" onClick={closePanel} className="btn-secondary text-sm px-5">Cancelar</button>
-                    <button type="submit" className="btn-primary text-sm px-7">
-                      <Save size={15} />
-                      {editingItem ? 'Actualizar' : 'Crear'}
-                    </button>
-                  </div>
-                </form>
+                      <div className="flex justify-end gap-3 pt-2 border-t border-white/5">
+                        <button type="button" onClick={closePanel} className="btn-secondary text-sm px-5">Cancelar</button>
+                        <button type="submit" className="btn-primary text-sm px-7">
+                          <Save size={15} />
+                          {editingItem ? 'Actualizar' : 'Crear'}
+                        </button>
+                      </div>
+                    </form>
+                  </>
+                )}
+
+                {panel === PANEL.COMPRA && (
+                  <>
+                    <h2 className="text-xl font-black text-white tracking-tighter mb-1 flex items-center gap-3">
+                      <ShoppingCart size={20} className="text-brand-yellow" />
+                      Registrar Compra
+                    </h2>
+                    <p className="text-slate-500 text-xs font-bold tracking-widest mb-5">
+                      Actualiza el precio promedio al registrar cada compra
+                    </p>
+
+                    <form onSubmit={handleSaveCompra} className="space-y-4">
+
+                      {/* Toggle existente/nuevo */}
+                      <div className="flex gap-2 p-1 bg-white/5 rounded-xl border border-white/5">
+                        <button type="button"
+                          onClick={() => { setShowNewInComp(false); setSelectedInsumo(null); setCompraSearch(''); }}
+                          className={`flex-1 py-2 rounded-lg text-xs font-black tracking-widest transition-all
+                            ${!showNewInComp ? 'bg-brand-teal text-black' : 'text-slate-400 hover:text-slate-200'}`}>
+                          EXISTENTE
+                        </button>
+                        <button type="button"
+                          onClick={() => { setShowNewInComp(true); setSelectedInsumo(null); setCompraSearch(''); setInsumoForm(EMPTY_INSUMO); }}
+                          className={`flex-1 py-2 rounded-lg text-xs font-black tracking-widest transition-all
+                            ${showNewInComp ? 'bg-brand-yellow text-black' : 'text-slate-400 hover:text-slate-200'}`}>
+                          NUEVO
+                        </button>
+                      </div>
+
+                      {/* Insumo existente */}
+                      {!showNewInComp && (
+                        <div className="space-y-2">
+                          <div className="relative">
+                            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <input
+                              type="text" placeholder="Buscar por marca, tipo o presentación..."
+                              className="input-field pl-10 text-sm"
+                              value={compraSearch}
+                              onChange={e => { setCompraSearch(e.target.value); setSelectedInsumo(null); }}
+                            />
+                          </div>
+
+                          {searchResults.length > 0 && !selectedInsumo && (
+                            <div className="rounded-xl border border-white/10 overflow-hidden">
+                              {searchResults.map(item => (
+                                <button key={item.id} type="button"
+                                  onClick={() => { setSelectedInsumo(item); setCompraSearch(`${item.marca} — ${item.presentacion}`); }}
+                                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors text-left border-b border-white/5 last:border-0"
+                                >
+                                  <div>
+                                    <p className="text-sm font-bold text-slate-200">{item.marca}</p>
+                                    <p className="text-xs text-slate-500">{item.tipo_insumo} · {item.presentacion}</p>
+                                  </div>
+                                  <span className="text-sm font-black text-emerald-400">${fmt(item.precio_promedio)}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {selectedInsumo && (
+                            <div className="px-4 py-3 rounded-xl bg-brand-teal/5 border border-brand-teal/20 flex justify-between items-center">
+                              <div>
+                                <p className="text-sm font-black text-slate-200">{selectedInsumo.marca}</p>
+                                <p className="text-xs text-slate-500">{selectedInsumo.tipo_insumo} · {selectedInsumo.presentacion}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-slate-500">Precio actual</p>
+                                <p className="text-sm font-black text-emerald-400">${fmt(selectedInsumo.precio_promedio)}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Insumo nuevo */}
+                      {showNewInComp && (
+                        <div className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                          <p className="text-xs font-black text-brand-yellow tracking-widest">DATOS DEL NUEVO INSUMO</p>
+                          <div>
+                            <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">Tipo</label>
+                            <select required className="input-field text-sm" value={insumoForm.tipo_insumo}
+                              onChange={e => setInsumoForm(p => ({ ...p, tipo_insumo: e.target.value }))}>
+                              {TIPOS.map(t => <option key={t} value={t} className="bg-slate-900">{t}</option>)}
+                            </select>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">Marca</label>
+                              <input required type="text" placeholder="Ej: Bacardi" className="input-field text-sm"
+                                value={insumoForm.marca}
+                                onChange={e => setInsumoForm(p => ({ ...p, marca: e.target.value }))} />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">Presentación</label>
+                              <input required type="text" placeholder="Ej: 750 ml" className="input-field text-sm"
+                                value={insumoForm.presentacion}
+                                onChange={e => setInsumoForm(p => ({ ...p, presentacion: e.target.value }))} />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">ML / GR / Pieza</label>
+                            <input required type="number" step="0.01" min="0.01" placeholder="0" className="input-field text-sm"
+                              value={insumoForm.ml_gr_pieza}
+                              onChange={e => setInsumoForm(p => ({ ...p, ml_gr_pieza: e.target.value }))} />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Datos de la compra */}
+                      {(selectedInsumo || showNewInComp) && (
+                        <div className="space-y-3 p-4 rounded-xl bg-brand-yellow/5 border border-brand-yellow/20">
+                          <p className="text-xs font-black text-brand-yellow tracking-widest">DATOS DE LA COMPRA</p>
+
+                          <div>
+                            <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">Fecha de Compra</label>
+                            <input type="date" required className="input-field text-sm"
+                              value={compraForm.fecha_compra}
+                              onChange={e => setCompraForm(p => ({ ...p, fecha_compra: e.target.value }))} />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">Cantidad</label>
+                              <input required type="number" step="0.01" min="0.01" placeholder="1" className="input-field text-sm"
+                                value={compraForm.cantidad_comprada}
+                                onChange={e => setCompraForm(p => ({ ...p, cantidad_comprada: e.target.value }))} />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">Total Pagado ($)</label>
+                              <input required type="number" step="0.01" min="0" placeholder="0.00" className="input-field text-sm"
+                                value={compraForm.precio_total_compra}
+                                onChange={e => setCompraForm(p => ({ ...p, precio_total_compra: e.target.value }))} />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end gap-3 pt-1">
+                        <button type="button" onClick={closePanel} className="btn-secondary text-sm px-5">Cancelar</button>
+                        <button
+                          type="submit"
+                          disabled={savingCompra || (!selectedInsumo && !showNewInComp)}
+                          className="btn-primary text-sm px-7 disabled:opacity-40"
+                        >
+                          <Save size={15} />
+                          {savingCompra ? 'Guardando...' : 'Guardar'}
+                        </button>
+                      </div>
+                    </form>
+                  </>
+                )}
 
                 <datalist id="base-product-list">
                   {baseProductNames.map(name => <option key={name} value={name} />)}
