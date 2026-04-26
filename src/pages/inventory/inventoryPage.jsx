@@ -246,20 +246,43 @@ const InventoryPage = () => {
         }).eq('id', insumoId);
       }
 
-      // 3. Sumar al inventario físico
-      const { data: invItem } = await supabase
+      // 3. Actualizar o crear registro en inventario
+      const { data: invItems } = await supabase
         .from('inventario')
-        .select('id, cantidad_actual')
-        .eq('insumo_id', insumoId)
-        .maybeSingle();
+        .select('id, cantidad_actual, insumo_id, producto_base')
+        .eq('insumo_id', insumoId);
 
-      if (invItem) {
+      if (invItems && invItems.length > 0) {
+        // Ya existe — actualizar cantidad
+        const invItem = invItems[0];
         const { error: invError } = await supabase.from('inventario').update({
           cantidad_actual: parseFloat(invItem.cantidad_actual || 0) + parseFloat(compraForm.cantidad_comprada)
         }).eq('id', invItem.id);
         if (invError) throw invError;
       } else {
-        toast.info('Compra registrada, pero no se encontró un item vinculado en Stock físico.');
+        // No existe — crear nuevo registro en inventario con insumo_id vinculado
+        const { data: newInvItem, error: createError } = await supabase
+          .from('inventario')
+          .insert([{
+            insumo_id: insumoId,
+            nombre: targetInsumo?.marca || targetInsumo?.tipo_insumo || 'Sin nombre',
+            producto_base: targetInsumo?.marca || targetInsumo?.tipo_insumo || 'Sin nombre',
+            cantidad_actual: parseFloat(compraForm.cantidad_comprada),
+            cantidad_minima: 0,
+            unidad: targetInsumo?.presentacion || 'ML',
+            precio_unitario: parseFloat(compraForm.precio_total_compra) / parseFloat(compraForm.cantidad_comprada),
+            categoria: targetInsumo?.tipo_insumo || 'Otros',
+            proveedor: '',
+            notas: 'Creado automáticamente al registrar compra'
+          }])
+          .select();
+
+        if (createError) {
+          console.error('Error creando inventario:', createError);
+          toast.error('Error al crear stock: ' + createError.message, { id: loadingToast });
+          setSavingCompra(false);
+          return;
+        }
       }
 
       toast.success('Compra y Stock actualizados correctamente', { id: loadingToast });
