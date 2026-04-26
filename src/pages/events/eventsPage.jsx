@@ -414,6 +414,7 @@ const EventsPage = () => {
       const { data: selection } = await supabase
         .from('evento_productos')
         .select(`
+          id,
           cantidad,
           recetas_base (
             nombre, 
@@ -427,19 +428,51 @@ const EventsPage = () => {
         `)
         .eq('evento_id', eventId);
 
-      // Fetch inventario e insumos
+      // Fetch inventario, insumos y MEZCLAS
       const { data: inventoryData } = await supabase.from('inventario').select('*');
       const { data: insumosData } = await supabase.from('insumos').select('*');
+      const { data: mezclasData } = await supabase
+        .from('insumo_mezclas')
+        .select('*, insumos(id, marca, tipo_insumo, precio_x_ml, ml_gr_pieza)')
+        .order('nombre_generico');
 
       const totals = {};
       selection.forEach(p => {
         const recipePortions = p.cantidad || 0;
         p.recetas_base.receta_componentes.forEach(comp => {
           const isGeneric = !comp.insumo_id;
-          const key = isGeneric ? `gen_${comp.insumo_nombre_manual}` : comp.insumo_id;
-
-          if (!totals[key]) {
-            if (isGeneric) {
+          
+          if (isGeneric) {
+            // Buscar si tiene mezcla definida
+            const mixtures = mezclasData?.filter(m => m.nombre_generico.toLowerCase() === comp.insumo_nombre_manual?.toLowerCase());
+            
+            if (mixtures && mixtures.length > 0) {
+              mixtures.forEach(m => {
+                const insumoId = m.insumo_id;
+                const qtyDesglosada = (comp.cantidad * recipePortions * Number(m.porcentaje)) / 100;
+                
+                if (!totals[insumoId]) {
+                  const ins = insumosData?.find(i => i.id === insumoId);
+                  const inv = inventoryData?.find(i => i.insumo_id === insumoId);
+                  totals[insumoId] = {
+                    nombre: ins?.marca || 'Desconocido',
+                    insumo_id: insumoId,
+                    necesitas: 0,
+                    en_inventario: inv?.cantidad_actual || 0,
+                    unidad: ins?.presentacion || inv?.unidad || 'ML',
+                    precio_x_ml: ins?.precio_x_ml || 0,
+                    is_generic: false,
+                    desglosado_de: comp.insumo_nombre_manual
+                  };
+                }
+                totals[insumoId].necesitas += qtyDesglosada;
+              });
+              return; // Pasar al siguiente componente
+            }
+            
+            // Si NO tiene mezcla, tratar como genérico normal
+            const key = `gen_${comp.insumo_nombre_manual}`;
+            if (!totals[key]) {
               const precioPromedio = insumosData
                 ?.filter(i => i.tipo_insumo?.toLowerCase() === comp.insumo_nombre_manual?.toLowerCase())
                 .reduce((sum, i, _, arr) => sum + ((i.precio_x_ml || 0) / arr.length), 0) || 0;
@@ -451,14 +484,22 @@ const EventsPage = () => {
                 a_comprar: 0,
                 unidad: comp.unidad || 'Pzas',
                 is_generic: true,
-                precio_x_ml: precioPromedio
+                precio_x_ml: precioPromedio,
+                sin_mezcla: true
               };
-            } else {
+            }
+            totals[key].necesitas += comp.cantidad * recipePortions;
+            
+          } else {
+            // Item específico
+            const key = comp.insumo_id;
+            if (!totals[key]) {
               const insumo = insumosData?.find(i => i.id === comp.insumo_id);
-              const inv = inventoryData?.find(i => i.id === comp.insumo_id);
+              const inv = inventoryData?.find(i => i.insumo_id === comp.insumo_id);
 
               totals[key] = {
                 nombre: insumo?.marca || 'Desconocido',
+                insumo_id: key,
                 necesitas: 0,
                 en_inventario: inv?.cantidad_actual || 0,
                 unidad: insumo?.presentacion || inv?.unidad || comp.unidad || 'Pzas',
@@ -467,8 +508,8 @@ const EventsPage = () => {
                 is_generic: false
               };
             }
+            totals[key].necesitas += comp.cantidad * recipePortions;
           }
-          totals[key].necesitas += comp.cantidad * recipePortions;
         });
       });
 

@@ -89,12 +89,18 @@ const RecipesPage = () => {
   const [inventory, setInventory]       = useState([]);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [panel, setPanel]               = useState(PANEL.NONE);
+  const [mezclas, setMezclas]           = useState([]);
 
   const [editorData, setEditorData]     = useState({
     id: null, nombre: '', categoria: 'Cerveza con sabor', componentes: []
   });
 
-  useEffect(() => { fetchRecipes(); fetchInventory(); }, []);
+  useEffect(() => { fetchRecipes(); fetchInventory(); fetchMezclas(); }, []);
+
+  const fetchMezclas = async () => {
+    const { data } = await supabase.from('insumo_mezclas').select('*, insumos(*)');
+    setMezclas(data || []);
+  };
 
   const fetchInventory = async () => {
     const { data } = await supabase.from('insumos').select('*').order('marca');
@@ -442,6 +448,14 @@ const RecipesPage = () => {
                                       {item.insumo_nombre_manual || (item.insumos ? `${item.insumos.marca} (${item.insumos.presentacion})` : 'Insumo')}
                                     </div>
                                     <div className="text-xs text-slate-500 font-bold">{item.cantidad} {item.unidad}</div>
+                                    {isGeneric && mezclas.filter(m => m.nombre_generico.toLowerCase() === item.insumo_nombre_manual?.toLowerCase()).length > 0 && (
+                                      <div className="mt-1 text-[9px] font-bold text-slate-400">
+                                        └ {mezclas
+                                            .filter(m => m.nombre_generico.toLowerCase() === item.insumo_nombre_manual?.toLowerCase())
+                                            .map(m => `${m.insumos?.marca}: ~${((item.cantidad * m.porcentaje) / 100).toFixed(1)}${item.unidad}`)
+                                            .join(' · ')}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                                 <div className="text-right">

@@ -152,6 +152,18 @@ const styles = StyleSheet.create({
     fontSize: 7,
     color: '#94a3b8',
     fontStyle: 'italic',
+  },
+  cellNote: {
+    fontSize: 6,
+    color: '#64748b',
+    fontStyle: 'italic',
+    marginTop: 1,
+  },
+  warningNote: {
+    fontSize: 6,
+    color: '#BE123C',
+    fontWeight: 'bold',
+    marginTop: 1,
   }
 });
 
@@ -229,6 +241,11 @@ const EventShoppingListPDF = ({ event, items, recipes = [] }) => {
                 <View key={idx} style={styles.tableRow}>
                   <View style={styles.colInsumo}>
                     <Text style={styles.cellText}>{item.nombre}</Text>
+                    {item.desglosado_de && (
+                      <Text style={styles.cellNote}>
+                        (parte de: {item.desglosado_de})
+                      </Text>
+                    )}
                   </View>
                   <View style={styles.colQty}>
                     <Text style={styles.cellQty}>{item.necesitas.toFixed(1)}</Text>
@@ -268,6 +285,11 @@ const EventShoppingListPDF = ({ event, items, recipes = [] }) => {
                 <View key={idx} style={styles.tableRow}>
                   <View style={styles.colInsumo}>
                     <Text style={styles.cellText}>{item.nombre}</Text>
+                    {item.sin_mezcla && (
+                      <Text style={styles.warningNote}>
+                        ⚠️ Sin mezcla definida — definir en módulo de Insumos
+                      </Text>
+                    )}
                   </View>
                   <View style={styles.colQty}>
                     <Text style={styles.cellQty}>{item.necesitas.toFixed(1)}</Text>
