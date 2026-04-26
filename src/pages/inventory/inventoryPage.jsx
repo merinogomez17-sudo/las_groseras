@@ -65,7 +65,8 @@ const InventoryPage = () => {
   const [loadingCompras, setLoadingCompras]   = useState(false);
   const [compraSearch, setCompraSearch]       = useState('');
   const [selectedInsumo, setSelectedInsumo]   = useState(null);
-  const [showNewInComp, setShowNewInComp]     = useState(false);
+  const [newInsumoModal, setNewInsumoModal]   = useState(false);
+  const [savingNewInsumo, setSavingNewInsumo] = useState(false);
   const [insumoForm, setInsumoForm]           = useState(EMPTY_INSUMO);
   const [compraForm, setCompraForm]           = useState({
     cantidad_comprada: '', precio_total_compra: '', lugar_compra: '',
@@ -159,7 +160,7 @@ const InventoryPage = () => {
   const openCompra = () => {
     setCompraSearch('');
     setSelectedInsumo(null);
-    setShowNewInComp(false);
+    setNewInsumoModal(false);
     setInsumoForm(EMPTY_INSUMO);
     setCompraForm({
       cantidad_comprada: '', precio_total_compra: '', lugar_compra: '',
@@ -261,28 +262,42 @@ const InventoryPage = () => {
     ).slice(0, 8);
   }, [compraSearch, insumos]);
 
+  const handleSaveNewInsumo = async (e) => {
+    e.preventDefault();
+    setSavingNewInsumo(true);
+    try {
+      const payload = {
+        tipo_insumo:  insumoForm.tipo_insumo,
+        marca:        insumoForm.marca.trim(),
+        presentacion: insumoForm.presentacion.trim(),
+        ml_gr_pieza:  parseFloat(insumoForm.ml_gr_pieza) || null,
+        precio_promedio: parseFloat(insumoForm.precio_promedio) || 0,
+        total_unidades_compradas: 0,
+      };
+      const { data, error } = await supabase.from('insumos').insert([payload]).select().single();
+      if (error) throw error;
+      await fetchInsumos();
+      setSelectedInsumo(data);
+      setCompraSearch(`${data.marca} — ${data.presentacion}`);
+      setNewInsumoModal(false);
+      setInsumoForm(EMPTY_INSUMO);
+      toast.success('Insumo creado y seleccionado');
+    } catch (err) {
+      toast.error('Error: ' + err.message);
+    } finally {
+      setSavingNewInsumo(false);
+    }
+  };
+
   const handleSaveCompra = async (e) => {
     e.preventDefault();
     setSavingCompra(true);
     const loadingToast = toast.loading('Registrando compra y actualizando inventario...');
     try {
-      let insumoId = selectedInsumo?.id;
-      let targetInsumo = selectedInsumo;
+      const insumoId = selectedInsumo?.id;
+      const targetInsumo = selectedInsumo;
 
-      if (showNewInComp) {
-        const payload = {
-          tipo_insumo:     insumoForm.tipo_insumo,
-          marca:           insumoForm.marca.trim(),
-          presentacion:    insumoForm.presentacion.trim(),
-          precio_promedio: parseFloat(compraForm.precio_total_compra) / parseFloat(compraForm.cantidad_comprada),
-          ml_gr_pieza:     parseFloat(insumoForm.ml_gr_pieza),
-          total_unidades_compradas: parseFloat(compraForm.cantidad_comprada)
-        };
-        const { data, error } = await supabase.from('insumos').insert([payload]).select().single();
-        if (error) throw error;
-        insumoId = data.id;
-        targetInsumo = data;
-      }
+      if (!insumoId) throw new Error('Selecciona un producto del catálogo');
 
       // 1. Insertar en tabla compras
       const { error: compError } = await supabase.from('compras').insert([{
@@ -295,7 +310,7 @@ const InventoryPage = () => {
       if (compError) throw compError;
 
       // 2. Actualizar Insumo (precio promedio, total unidades, precio x ml)
-      if (!showNewInComp && targetInsumo) {
+      if (targetInsumo) {
         const oldTotal = parseFloat(targetInsumo.total_unidades_compradas || 0);
         const newQty   = parseFloat(compraForm.cantidad_comprada);
         const oldPrice = parseFloat(targetInsumo.precio_promedio || 0);
@@ -890,104 +905,65 @@ const InventoryPage = () => {
             </div>
 
             <form onSubmit={handleSaveCompra} className="space-y-6">
-              {/* Toggle existente/nuevo */}
-              <div className="flex gap-2 p-1 bg-white/5 rounded-xl border border-white/5">
-                <button type="button"
-                  onClick={() => { setShowNewInComp(false); setSelectedInsumo(null); setCompraSearch(''); }}
-                  className={`flex-1 py-3 rounded-lg text-xs font-black tracking-widest transition-all
-                    ${!showNewInComp ? 'bg-brand-teal text-black' : 'text-slate-400 hover:text-slate-200'}`}>
-                  CATÁLOGO EXISTENTE
-                </button>
-                <button type="button"
-                  onClick={() => { setShowNewInComp(true); setSelectedInsumo(null); setCompraSearch(''); setInsumoForm(EMPTY_INSUMO); }}
-                  className={`flex-1 py-3 rounded-lg text-xs font-black tracking-widest transition-all
-                    ${showNewInComp ? 'bg-brand-yellow text-black' : 'text-slate-400 hover:text-slate-200'}`}>
-                  NUEVO PRODUCTO
-                </button>
-              </div>
-
-              {/* Insumo existente */}
-              {!showNewInComp && (
-                <div className="space-y-3">
-                  <label className="block text-xs font-black text-slate-500 tracking-widest uppercase">Seleccionar Producto del Catálogo</label>
-                  <div className="relative">
-                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-                    <input
-                      type="text" placeholder="Buscar por marca o presentación..."
-                      className="input-field pl-12"
-                      value={compraSearch}
-                      onChange={e => { setCompraSearch(e.target.value); setSelectedInsumo(null); }}
-                    />
-                  </div>
-
-                  {searchResults.length > 0 && !selectedInsumo && (
-                    <div className="rounded-2xl border border-white/10 overflow-hidden bg-slate-900/50 shadow-2xl">
-                      {searchResults.map(item => (
-                        <button key={item.id} type="button"
-                          onClick={() => { setSelectedInsumo(item); setCompraSearch(`${item.marca} — ${item.presentacion}`); }}
-                          className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors text-left border-b border-white/5 last:border-0"
-                        >
-                          <div>
-                            <p className="text-base font-bold text-slate-200">{item.marca}</p>
-                            <p className="text-xs text-slate-500 font-bold">{item.tipo_insumo} · {item.presentacion}</p>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-xs text-slate-500 block">Precio Actual</span>
-                            <span className="text-base font-black text-emerald-400">${fmt(item.precio_promedio)}</span>
-                          </div>
-                        </button>
-                      ))}
+              {/* Buscador de insumo */}
+              <div className="space-y-3">
+                <label className="block text-xs font-black text-slate-500 tracking-widest uppercase">Producto</label>
+                {selectedInsumo ? (
+                  <div className="p-5 rounded-2xl bg-brand-teal/5 border border-brand-teal/20 flex justify-between items-center shadow-xl shadow-brand-teal/5">
+                    <div>
+                      <p className="text-lg font-black text-white">{selectedInsumo.marca}</p>
+                      <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">{selectedInsumo.tipo_insumo} · {selectedInsumo.presentacion}</p>
                     </div>
-                  )}
-
-                  {selectedInsumo && (
-                    <div className="p-6 rounded-2xl bg-brand-teal/5 border border-brand-teal/20 flex justify-between items-center shadow-xl shadow-brand-teal/5">
-                      <div>
-                        <p className="text-lg font-black text-white">{selectedInsumo.marca}</p>
-                        <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">{selectedInsumo.tipo_insumo} · {selectedInsumo.presentacion}</p>
-                      </div>
+                    <div className="flex items-center gap-4">
                       <div className="text-right">
                         <p className="text-[10px] text-slate-500 font-black tracking-widest uppercase mb-1">Costo Promedio</p>
                         <p className="text-2xl font-black text-emerald-400">${fmt(selectedInsumo.precio_promedio)}</p>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Insumo nuevo */}
-              {showNewInComp && (
-                <div className="space-y-4 p-6 rounded-2xl bg-white/[0.02] border border-white/5">
-                  <h3 className="text-xs font-black text-brand-yellow tracking-[0.2em] uppercase mb-4">Detalles del nuevo catálogo</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Tipo</label>
-                      <select required className="input-field font-bold" value={insumoForm.tipo_insumo}
-                        onChange={e => setInsumoForm(p => ({ ...p, tipo_insumo: e.target.value }))}>
-                        {TIPOS.map(t => <option key={t} value={t} className="bg-slate-900">{t}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Marca</label>
-                      <input required type="text" placeholder="Ej: Bacardi" className="input-field"
-                        value={insumoForm.marca} onChange={e => setInsumoForm(p => ({ ...p, marca: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Presentación</label>
-                      <input required type="text" placeholder="Ej: 750 ml" className="input-field"
-                        value={insumoForm.presentacion} onChange={e => setInsumoForm(p => ({ ...p, presentacion: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">ML / GR / Pieza</label>
-                      <input required type="number" step="0.01" className="input-field font-black"
-                        value={insumoForm.ml_gr_pieza} onChange={e => setInsumoForm(p => ({ ...p, ml_gr_pieza: e.target.value }))} />
+                      <button type="button" onClick={() => { setSelectedInsumo(null); setCompraSearch(''); }}
+                        className="p-1.5 text-slate-500 hover:text-white transition-colors">
+                        <X size={16} />
+                      </button>
                     </div>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="relative">
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      autoFocus
+                      type="text" placeholder="Buscar por marca, tipo o presentación..."
+                      className="input-field pl-12"
+                      value={compraSearch}
+                      onChange={e => setCompraSearch(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {!selectedInsumo && compraSearch.length >= 2 && (
+                  <div className="rounded-2xl border border-white/10 overflow-hidden bg-slate-900/50 shadow-2xl">
+                    {searchResults.map(item => (
+                      <button key={item.id} type="button"
+                        onClick={() => { setSelectedInsumo(item); setCompraSearch(`${item.marca} — ${item.presentacion}`); }}
+                        className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors text-left border-b border-white/5"
+                      >
+                        <div>
+                          <p className="text-base font-bold text-slate-200">{item.marca}</p>
+                          <p className="text-xs text-slate-500 font-bold">{item.tipo_insumo} · {item.presentacion}</p>
+                        </div>
+                        <span className="text-base font-black text-emerald-400">${fmt(item.precio_promedio)}</span>
+                      </button>
+                    ))}
+                    <button type="button"
+                      onClick={() => { setInsumoForm(EMPTY_INSUMO); setNewInsumoModal(true); }}
+                      className="w-full flex items-center gap-3 px-6 py-4 hover:bg-brand-yellow/5 transition-colors text-left text-brand-yellow font-black text-sm"
+                    >
+                      <Plus size={16} className="stroke-[3px]" /> Agregar nuevo insumo
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Datos de la compra */}
-              {(selectedInsumo || showNewInComp) && (
+              {selectedInsumo && (
                 <div className="space-y-6 p-6 rounded-2xl bg-brand-yellow/5 border border-brand-yellow/20">
                   <h3 className="text-xs font-black text-brand-yellow tracking-[0.2em] uppercase">Datos de la Transacción</h3>
                   
@@ -1098,6 +1074,59 @@ const InventoryPage = () => {
           </div>
         </div>
       )}
+
+      {/* MODAL NUEVO INSUMO */}
+      <AnimatePresence>
+        {newInsumoModal && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="glass p-8 max-w-lg w-full border-brand-yellow/20 relative">
+              <button onClick={() => setNewInsumoModal(false)} className="absolute right-5 top-5 text-slate-500 hover:text-white"><X size={20}/></button>
+              <h3 className="text-xl font-black text-white mb-1 flex items-center gap-2">
+                <Plus size={18} className="text-brand-yellow" /> Nuevo Insumo
+              </h3>
+              <p className="text-[11px] text-slate-500 font-bold mb-6 tracking-widest">Se creará en el catálogo y quedará seleccionado para la compra</p>
+              <form onSubmit={handleSaveNewInsumo} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Tipo</label>
+                    <select required className="input-field font-bold" value={insumoForm.tipo_insumo}
+                      onChange={e => setInsumoForm(p => ({ ...p, tipo_insumo: e.target.value }))}>
+                      {TIPOS.map(t => <option key={t} value={t} className="bg-slate-900">{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Marca</label>
+                    <input autoFocus required type="text" placeholder="Ej: Bacardi" className="input-field"
+                      value={insumoForm.marca} onChange={e => setInsumoForm(p => ({ ...p, marca: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Presentación</label>
+                    <input required type="text" placeholder="Ej: 750 ml" className="input-field"
+                      value={insumoForm.presentacion} onChange={e => setInsumoForm(p => ({ ...p, presentacion: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">ML / GR / Pieza</label>
+                    <input required type="number" step="0.01" min="0.01" placeholder="750" className="input-field font-black"
+                      value={insumoForm.ml_gr_pieza} onChange={e => setInsumoForm(p => ({ ...p, ml_gr_pieza: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Precio promedio inicial ($)</label>
+                    <input type="number" step="0.01" min="0" placeholder="0" className="input-field font-black"
+                      value={insumoForm.precio_promedio} onChange={e => setInsumoForm(p => ({ ...p, precio_promedio: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setNewInsumoModal(false)} className="btn-secondary flex-1 py-3">Cancelar</button>
+                  <button type="submit" disabled={savingNewInsumo} className="btn-primary flex-1 py-3 font-black">
+                    {savingNewInsumo ? 'Creando...' : 'Crear y Seleccionar'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* MODAL AJUSTE RÁPIDO */}
       <AnimatePresence>
