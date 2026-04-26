@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Package, Search, Plus, Filter, Download,
   AlertTriangle, TrendingUp,
-  Edit2, Trash2, X, Save, RefreshCw, Calculator,
-  Layers, Info, ShoppingCart, Calendar
+  Edit2, Trash2, X, Save, RefreshCw,
+  Layers, ShoppingCart, Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
@@ -20,7 +20,8 @@ const categories = [
 const EMPTY_FORM = {
   nombre: '', producto_base: '', formato: 'Pza', categoria: 'Otros',
   cantidad_actual: 0, cantidad_minima: 0, unidad: 'Pzas',
-  precio_unitario: 0, piezas_por_unidad: 1, proveedor: '', notas: ''
+  precio_unitario: 0, piezas_por_unidad: 1, proveedor: '', notas: '',
+  insumo_id: null
 };
 
 const EMPTY_INSUMO = {
@@ -54,6 +55,10 @@ const InventoryPage = () => {
   const [adjustingItem, setAdjustingItem]     = useState(null);
   const [adjustQty, setAdjustQty]             = useState(1);
 
+  // Búsqueda de insumo en panel de stock manual
+  const [panelInsumoSearch, setPanelInsumoSearch] = useState('');
+  const [panelInsumoSelected, setPanelInsumoSelected] = useState(null);
+
   // Registro de compra
   const [insumos, setInsumos]                 = useState([]);
   const [compras, setCompras]                 = useState([]);
@@ -63,7 +68,7 @@ const InventoryPage = () => {
   const [showNewInComp, setShowNewInComp]     = useState(false);
   const [insumoForm, setInsumoForm]           = useState(EMPTY_INSUMO);
   const [compraForm, setCompraForm]           = useState({
-    cantidad_comprada: '', precio_total_compra: '',
+    cantidad_comprada: '', precio_total_compra: '', lugar_compra: '',
     fecha_compra: new Date().toISOString().split('T')[0]
   });
   const [savingCompra, setSavingCompra]       = useState(false);
@@ -123,6 +128,8 @@ const InventoryPage = () => {
   };
 
   const openPanel = (item = null) => {
+    setPanelInsumoSearch('');
+    setPanelInsumoSelected(null);
     if (item) {
       setEditingItem(item);
       setFormData({
@@ -131,6 +138,11 @@ const InventoryPage = () => {
         formato:          item.formato || 'Pza',
         piezas_por_unidad: item.piezas_por_unidad || 1
       });
+      // Pre-llenar insumo vinculado si existe
+      if (item.insumo_id) {
+        const linked = insumos.find(i => i.id === item.insumo_id);
+        if (linked) { setPanelInsumoSelected(linked); setPanelInsumoSearch(`${linked.marca} — ${linked.presentacion}`); }
+      }
     } else {
       setEditingItem(null);
       setFormData(EMPTY_FORM);
@@ -144,7 +156,7 @@ const InventoryPage = () => {
     setShowNewInComp(false);
     setInsumoForm(EMPTY_INSUMO);
     setCompraForm({
-      cantidad_comprada: '', precio_total_compra: '',
+      cantidad_comprada: '', precio_total_compra: '', lugar_compra: '',
       fecha_compra: new Date().toISOString().split('T')[0]
     });
     setPanel(PANEL.COMPRA);
@@ -155,7 +167,16 @@ const InventoryPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const loadingToast = toast.loading('Guardando...');
-    const finalData = { ...formData, nombre: `${formData.producto_base} (${formData.formato})` };
+    const precioFinal = (formData.precio_unitario === 0 || formData.precio_unitario === '')
+      && panelInsumoSelected
+      ? panelInsumoSelected.precio_promedio
+      : formData.precio_unitario;
+    const finalData = {
+      ...formData,
+      nombre: `${formData.producto_base} (${formData.formato})`,
+      insumo_id: panelInsumoSelected?.id ?? formData.insumo_id ?? null,
+      precio_unitario: precioFinal,
+    };
     try {
       if (editingItem) {
         const { error } = await supabase.from('inventario').update(finalData).eq('id', editingItem.id);
@@ -184,6 +205,17 @@ const InventoryPage = () => {
       toast.error('Error: ' + error.message);
     }
   };
+
+  // ── Búsqueda de insumo en panel de stock manual ───────────────
+  const panelInsumoResults = useMemo(() => {
+    if (!panelInsumoSearch || panelInsumoSearch.length < 2 || panelInsumoSelected) return [];
+    const q = panelInsumoSearch.toLowerCase();
+    return insumos.filter(i =>
+      i.marca.toLowerCase().includes(q) ||
+      i.tipo_insumo.toLowerCase().includes(q) ||
+      i.presentacion.toLowerCase().includes(q)
+    ).slice(0, 6);
+  }, [panelInsumoSearch, panelInsumoSelected, insumos]);
 
   // ── Registrar Compra ─────────────────────────────────────────
   const searchResults = useMemo(() => {
@@ -225,6 +257,7 @@ const InventoryPage = () => {
         fecha_compra:        compraForm.fecha_compra,
         cantidad_comprada:   parseFloat(compraForm.cantidad_comprada),
         precio_total_compra: parseFloat(compraForm.precio_total_compra),
+        lugar_compra:        compraForm.lugar_compra.trim() || null,
       }]);
       if (compError) throw compError;
 
@@ -261,7 +294,7 @@ const InventoryPage = () => {
         if (invError) throw invError;
       } else {
         // No existe — crear nuevo registro en inventario con insumo_id vinculado
-        const { data: newInvItem, error: createError } = await supabase
+        const { error: createError } = await supabase
           .from('inventario')
           .insert([{
             insumo_id: insumoId,
@@ -565,7 +598,6 @@ const InventoryPage = () => {
 
                         <AnimatePresence>
                           {expandedProducts[product.name] && product.presentations.map((item) => {
-                            const unitPrice = item.precio_unitario / (item.piezas_por_unidad || 1);
                             return (
                               <motion.tr
                                 initial={{ opacity: 0, height: 0 }}
@@ -629,7 +661,7 @@ const InventoryPage = () => {
               {panel === PANEL.FORM && (
                 <motion.div
                   initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
-                  className="w-96 glass border-white/5 p-6 shrink-0 sticky top-6"
+                  className="w-96 glass border-white/5 p-6 shrink-0 sticky top-6 max-h-[calc(100vh-6rem)] overflow-y-auto custom-scrollbar"
                 >
                   <button onClick={closePanel} className="absolute right-4 top-4 text-slate-500 hover:text-white"><X size={18}/></button>
                   <h2 className="text-xl font-black text-white tracking-tighter mb-4 flex items-center gap-2">
@@ -637,6 +669,45 @@ const InventoryPage = () => {
                     {editingItem ? 'Editar Insumo' : 'Nuevo Insumo'}
                   </h2>
                   <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* Vincular a catálogo de insumos */}
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">Vincular a Insumo del Catálogo</label>
+                      {panelInsumoSelected ? (
+                        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-brand-teal/10 border border-brand-teal/20">
+                          <div>
+                            <p className="text-sm font-black text-white">{panelInsumoSelected.marca}</p>
+                            <p className="text-[10px] text-slate-500 font-bold">{panelInsumoSelected.tipo_insumo} · {panelInsumoSelected.presentacion} · ${fmt(panelInsumoSelected.precio_promedio)}</p>
+                          </div>
+                          <button type="button" onClick={() => { setPanelInsumoSelected(null); setPanelInsumoSearch(''); setFormData(p => ({ ...p, insumo_id: null })); }}
+                            className="text-slate-500 hover:text-white"><X size={14}/></button>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input type="text" placeholder="Buscar en catálogo (opcional)..."
+                            className="input-field text-sm pl-9"
+                            value={panelInsumoSearch}
+                            onChange={e => setPanelInsumoSearch(e.target.value)} />
+                          {panelInsumoResults.length > 0 && (
+                            <div className="absolute z-10 top-full mt-1 w-full rounded-xl border border-white/10 bg-slate-900/95 overflow-hidden shadow-2xl">
+                              {panelInsumoResults.map(i => (
+                                <button key={i.id} type="button"
+                                  onClick={() => { setPanelInsumoSelected(i); setPanelInsumoSearch(`${i.marca} — ${i.presentacion}`); setFormData(p => ({ ...p, insumo_id: i.id, categoria: i.tipo_insumo, precio_unitario: p.precio_unitario || i.precio_promedio })); }}
+                                  className="w-full flex justify-between items-center px-3 py-2 hover:bg-white/5 text-left border-b border-white/5 last:border-0">
+                                  <div>
+                                    <p className="text-sm font-bold text-slate-200">{i.marca}</p>
+                                    <p className="text-[10px] text-slate-500">{i.tipo_insumo} · {i.presentacion}</p>
+                                  </div>
+                                  <span className="text-xs font-black text-emerald-400">${fmt(i.precio_promedio)}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-[10px] text-slate-600 mt-1">Si vinculas un insumo y no pones precio, se usará el precio promedio del catálogo.</p>
+                    </div>
+
                     <div>
                       <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">Producto Base</label>
                       <input required type="text" list="base-product-list" className="input-field text-sm"
@@ -658,6 +729,15 @@ const InventoryPage = () => {
                         <input type="number" className="input-field text-sm font-bold text-brand-red"
                           value={formData.cantidad_minima} onChange={(e) => setFormData({...formData, cantidad_minima: Number(e.target.value)})} />
                       </div>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">
+                        Precio Unitario ($) {panelInsumoSelected && !formData.precio_unitario ? <span className="text-brand-teal normal-case">— se usará precio promedio</span> : ''}
+                      </label>
+                      <input type="number" step="0.01" min="0" placeholder={panelInsumoSelected ? `$${fmt(panelInsumoSelected.precio_promedio)} (promedio)` : '0.00'}
+                        className="input-field text-sm"
+                        value={formData.precio_unitario || ''}
+                        onChange={(e) => setFormData({...formData, precio_unitario: Number(e.target.value)})} />
                     </div>
                     <div className="pt-4">
                       <button type="submit" className="btn-primary w-full py-3 font-black">
@@ -787,11 +867,20 @@ const InventoryPage = () => {
                 <div className="space-y-6 p-6 rounded-2xl bg-brand-yellow/5 border border-brand-yellow/20">
                   <h3 className="text-xs font-black text-brand-yellow tracking-[0.2em] uppercase">Datos de la Transacción</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Fecha</label>
                       <input type="date" required className="input-field"
                         value={compraForm.fecha_compra} onChange={e => setCompraForm(p => ({ ...p, fecha_compra: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Lugar de Compra</label>
+                      <input type="text" list="lugares-compra-list" placeholder="Ej: Sam's Club, Costco..."
+                        className="input-field"
+                        value={compraForm.lugar_compra} onChange={e => setCompraForm(p => ({ ...p, lugar_compra: e.target.value }))} />
+                      <datalist id="lugares-compra-list">
+                        {Array.from(new Set(compras.map(c => c.lugar_compra).filter(Boolean))).map(l => <option key={l} value={l} />)}
+                      </datalist>
                     </div>
                     <div>
                       <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Cantidad</label>
@@ -841,6 +930,7 @@ const InventoryPage = () => {
                   <th className="px-8 py-5 text-[11px] font-black tracking-widest text-slate-500 uppercase">Fecha</th>
                   <th className="px-8 py-5 text-[11px] font-black tracking-widest text-slate-500 uppercase">Producto (Catálogo)</th>
                   <th className="px-8 py-5 text-[11px] font-black tracking-widest text-slate-500 uppercase">Tipo / Presentación</th>
+                  <th className="px-8 py-5 text-[11px] font-black tracking-widest text-slate-500 uppercase">Lugar</th>
                   <th className="px-8 py-5 text-[11px] font-black tracking-widest text-slate-500 uppercase text-right">Cantidad</th>
                   <th className="px-8 py-5 text-[11px] font-black tracking-widest text-slate-500 uppercase text-right">Total</th>
                   <th className="px-8 py-5 text-[11px] font-black tracking-widest text-slate-500 uppercase text-right">Unitario</th>
@@ -848,9 +938,9 @@ const InventoryPage = () => {
               </thead>
               <tbody className="divide-y divide-white/[0.03]">
                 {loadingCompras ? (
-                  <tr><td colSpan="6" className="px-8 py-20 text-center text-slate-500 animate-pulse font-bold">Cargando historial...</td></tr>
+                  <tr><td colSpan="7" className="px-8 py-20 text-center text-slate-500 animate-pulse font-bold">Cargando historial...</td></tr>
                 ) : compras.length === 0 ? (
-                  <tr><td colSpan="6" className="px-8 py-20 text-center text-slate-500 italic">No hay compras registradas</td></tr>
+                  <tr><td colSpan="7" className="px-8 py-20 text-center text-slate-500 italic">No hay compras registradas</td></tr>
                 ) : compras.map(compra => {
                   const uPrice = compra.precio_total_compra / compra.cantidad_comprada;
                   return (
@@ -863,6 +953,9 @@ const InventoryPage = () => {
                       </td>
                       <td className="px-8 py-5 text-xs text-slate-500 font-bold uppercase tracking-tighter">
                         {compra.insumos?.tipo_insumo} · {compra.insumos?.presentacion}
+                      </td>
+                      <td className="px-8 py-5 text-xs text-slate-400 font-bold">
+                        {compra.lugar_compra || <span className="text-slate-600 italic">—</span>}
                       </td>
                       <td className="px-8 py-5 text-base font-black text-emerald-400 text-right">
                         {compra.cantidad_comprada}

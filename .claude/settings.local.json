@@ -26,7 +26,12 @@
       "PowerShell(claude mcp list)",
       "PowerShell(node --version)",
       "PowerShell(npx \"@_davideast/stitch-mcp\" proxy 2>&1)",
-      "PowerShell(head -5)"
+      "PowerShell(head -5)",
+      "Bash(cat .env)",
+      "Bash(cat .env.local)",
+      "Bash(psql postgresql://postgres:MerinoTrueba17@db.kcfvjorpgucdrbjbfdef.supabase.co:5432/postgres -c ' *)",
+      "Bash(node \"c:/LAS GROSERAS/las_groseras/scratch/migrate_mezclas_cantidad.cjs\")",
+      "Bash(npx vite *)"
     ]
   }
 }

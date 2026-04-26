@@ -447,9 +447,11 @@ const EventsPage = () => {
             const mixtures = mezclasData?.filter(m => m.nombre_generico.toLowerCase() === comp.insumo_nombre_manual?.toLowerCase());
             
             if (mixtures && mixtures.length > 0) {
+              const totalMezcla = mixtures.reduce((sum, m) => sum + Number(m.cantidad), 0);
               mixtures.forEach(m => {
                 const insumoId = m.insumo_id;
-                const qtyDesglosada = (comp.cantidad * recipePortions * Number(m.porcentaje)) / 100;
+                const proporcion = Number(m.cantidad) / totalMezcla;
+                const qtyDesglosada = comp.cantidad * recipePortions * proporcion;
                 
                 if (!totals[insumoId]) {
                   const ins = insumosData?.find(i => i.id === insumoId);

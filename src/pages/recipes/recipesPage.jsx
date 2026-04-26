@@ -67,18 +67,29 @@ const categories = ['Basica', 'Cerveza con sabor', 'Bebida especial', 'Cerveza e
 // Qué panel está abierto
 const PANEL = { NONE: null, DETAIL: 'detail', EDITOR: 'editor' };
 
-const calcComponentCost = (comp, inventory, genericOptions) => {
+const calcComponentCost = (comp, inventory, genericOptions, mezclas = []) => {
   const qty = parseFloat(comp.cantidad) || 0;
+  if (comp.is_mezcla) {
+    const comps = mezclas.filter(m => m.nombre_generico === comp.insumo_nombre_manual);
+    if (!comps.length) return 0;
+    const total = comps.reduce((s, m) => s + Number(m.cantidad), 0);
+    return comps.reduce((sum, m) => {
+      const proporcion = Number(m.cantidad) / total;
+      const ins = m.insumos || inventory.find(i => i.id === m.insumo_id);
+      if (!ins) return sum;
+      const pxu = ins.precio_x_ml || (ins.precio_promedio / (ins.ml_gr_pieza || 1));
+      return sum + pxu * qty * proporcion;
+    }, 0);
+  }
   if (comp.is_generic) {
     const gen = genericOptions.find(g => g.value === (comp.tipo_insumo || comp.insumo_nombre_manual));
     return gen ? (gen.avgPrice * qty) : 0;
-  } else {
-    const insumo = inventory.find(i => i.id === comp.insumo_id);
-    if (!insumo) return 0;
-    return insumo.precio_x_ml 
-      ? (insumo.precio_x_ml * qty) 
-      : ((insumo.precio_promedio / (insumo.ml_gr_pieza || 1)) * qty);
   }
+  const insumo = inventory.find(i => i.id === comp.insumo_id);
+  if (!insumo) return 0;
+  return insumo.precio_x_ml
+    ? (insumo.precio_x_ml * qty)
+    : ((insumo.precio_promedio / (insumo.ml_gr_pieza || 1)) * qty);
 };
 
 const RecipesPage = () => {
@@ -137,7 +148,7 @@ const RecipesPage = () => {
           tipo_insumo: isGeneric ? c.insumo_nombre_manual : '',
           cantidad: c.cantidad
         };
-        return acc + calcComponentCost(normalizedComp, inventory, genericOptions);
+        return acc + calcComponentCost(normalizedComp, inventory, genericOptions, mezclas);
       }, 0) || 0;
       return { ...recipe, dynamic_cost: total };
     });
@@ -185,16 +196,20 @@ const RecipesPage = () => {
 
   const openEditor = (recipe = null) => {
     if (recipe) {
+      const mezclaNames = new Set(mezclas.map(m => m.nombre_generico.toLowerCase()));
       setEditorData({
         id: recipe.id, nombre: recipe.nombre, categoria: recipe.categoria,
         componentes: recipe.receta_componentes?.map(c => {
           const isGeneric = !c.insumo_id && !!c.insumo_nombre_manual;
+          const isMezcla  = isGeneric && mezclaNames.has(c.insumo_nombre_manual?.toLowerCase());
           return {
-            id: c.id, 
-            insumo_id: c.insumo_id || '', 
-            tipo_insumo: isGeneric ? c.insumo_nombre_manual : '',
-            is_generic: isGeneric,
-            cantidad: c.cantidad, 
+            id: c.id,
+            insumo_id: c.insumo_id || '',
+            tipo_insumo: (isGeneric && !isMezcla) ? c.insumo_nombre_manual : '',
+            insumo_nombre_manual: isMezcla ? c.insumo_nombre_manual : '',
+            is_generic: isGeneric && !isMezcla,
+            is_mezcla:  isMezcla,
+            cantidad: c.cantidad,
             unidad: c.unidad
           };
         }) || []
@@ -210,13 +225,11 @@ const RecipesPage = () => {
   const handleAddComponent = () => {
     setEditorData(prev => ({ 
       ...prev, 
-      componentes: [...prev.componentes, { 
-        insumo_id: '', 
-        tipo_insumo: '', 
-        is_generic: false, 
-        cantidad: '', 
-        unidad: 'Ml/Gr/Pza' 
-      }] 
+      componentes: [...prev.componentes, {
+        insumo_id: '', tipo_insumo: '', insumo_nombre_manual: '',
+        is_generic: false, is_mezcla: false,
+        cantidad: '', unidad: 'Ml/Gr/Pza'
+      }]
     }));
   };
 
@@ -234,11 +247,16 @@ const RecipesPage = () => {
     }
 
     if (field === 'is_generic') {
-      if (value) {
-        newComps[idx].insumo_id = '';
-      } else {
-        newComps[idx].tipo_insumo = '';
-      }
+      newComps[idx].is_mezcla = false;
+      newComps[idx].insumo_nombre_manual = '';
+      if (value) { newComps[idx].insumo_id = ''; }
+      else { newComps[idx].tipo_insumo = ''; }
+    }
+    if (field === 'is_mezcla') {
+      newComps[idx].is_generic = false;
+      newComps[idx].insumo_id = '';
+      newComps[idx].tipo_insumo = '';
+      if (!value) newComps[idx].insumo_nombre_manual = '';
     }
 
     setEditorData({ ...editorData, componentes: newComps });
@@ -251,13 +269,15 @@ const RecipesPage = () => {
     try {
       let costoTotal = 0;
       const componentsToSave = editorData.componentes.map(comp => {
-        const costo = calcComponentCost(comp, inventory, genericOptions);
-        const insumoNombreManual = comp.is_generic ? comp.tipo_insumo : null;
+        const costo = calcComponentCost(comp, inventory, genericOptions, mezclas);
+        const insumoNombreManual = comp.is_mezcla
+          ? comp.insumo_nombre_manual
+          : comp.is_generic ? comp.tipo_insumo : null;
 
-        return { 
-          ...comp, 
+        return {
+          ...comp,
           costo_proporcional: costo,
-          insumo_id: comp.is_generic ? null : comp.insumo_id,
+          insumo_id: (comp.is_generic || comp.is_mezcla) ? null : comp.insumo_id,
           insumo_nombre_manual: insumoNombreManual
         };
       });
@@ -295,7 +315,7 @@ const RecipesPage = () => {
   };
 
   const totalCost = editorData.componentes.reduce((acc, comp) => {
-    return acc + calcComponentCost(comp, inventory, genericOptions);
+    return acc + calcComponentCost(comp, inventory, genericOptions, mezclas);
   }, 0);
 
   const panelOpen = panel !== PANEL.NONE;
@@ -435,7 +455,7 @@ const RecipesPage = () => {
                               insumo_nombre_manual: item.insumo_nombre_manual,
                               cantidad: item.cantidad
                             };
-                            const itemCost = calcComponentCost(normalizedComp, inventory, genericOptions);
+                            const itemCost = calcComponentCost(normalizedComp, inventory, genericOptions, mezclas);
 
                             return (
                               <div key={idx} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors">
@@ -448,14 +468,16 @@ const RecipesPage = () => {
                                       {item.insumo_nombre_manual || (item.insumos ? `${item.insumos.marca} (${item.insumos.presentacion})` : 'Insumo')}
                                     </div>
                                     <div className="text-xs text-slate-500 font-bold">{item.cantidad} {item.unidad}</div>
-                                    {isGeneric && mezclas.filter(m => m.nombre_generico.toLowerCase() === item.insumo_nombre_manual?.toLowerCase()).length > 0 && (
-                                      <div className="mt-1 text-[9px] font-bold text-slate-400">
-                                        └ {mezclas
-                                            .filter(m => m.nombre_generico.toLowerCase() === item.insumo_nombre_manual?.toLowerCase())
-                                            .map(m => `${m.insumos?.marca}: ~${((item.cantidad * m.porcentaje) / 100).toFixed(1)}${item.unidad}`)
-                                            .join(' · ')}
-                                      </div>
-                                    )}
+                                    {isGeneric && (() => {
+                                      const comps = mezclas.filter(m => m.nombre_generico.toLowerCase() === item.insumo_nombre_manual?.toLowerCase());
+                                      if (!comps.length) return null;
+                                      const total = comps.reduce((s, m) => s + Number(m.cantidad), 0);
+                                      return (
+                                        <div className="mt-1 text-[9px] font-bold text-slate-400">
+                                          └ {comps.map(m => `${m.insumos?.marca}: ~${(item.cantidad * Number(m.cantidad) / total).toFixed(1)}${item.unidad}`).join(' · ')}
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                                 <div className="text-right">
@@ -532,25 +554,53 @@ const RecipesPage = () => {
                               label: `${i.marca} (${i.presentacion}) — $${i.precio_promedio}`
                             }));
 
+                            const mezclaNames = [...new Set(mezclas.map(m => m.nombre_generico))];
+                            const mezclaOptions = mezclaNames.map(n => ({ value: n, label: n }));
+                            const mezclaComps = comp.is_mezcla
+                              ? mezclas.filter(m => m.nombre_generico === comp.insumo_nombre_manual)
+                              : [];
+                            const mezclaTotal = mezclaComps.reduce((s, m) => s + Number(m.cantidad), 0);
+
                             return (
                               <div key={idx} className="flex flex-col gap-2 p-3 bg-white/5 rounded-xl border border-white/5 group relative">
-                                <div className="flex items-center justify-between mb-1">
-                                  <div className="flex items-center gap-2">
-                                    <button 
-                                      onClick={() => handleUpdateComponent(idx, 'is_generic', !comp.is_generic)}
-                                      className={`px-2 py-0.5 rounded text-[9px] font-black tracking-widest transition-all ${comp.is_generic ? 'bg-brand-red text-white' : 'bg-slate-800 text-slate-500'}`}
+                                {/* Tipo */}
+                                <div className="flex items-center gap-1.5">
+                                  {[
+                                    { key: 'specific', label: 'ESPECÍFICO', active: !comp.is_generic && !comp.is_mezcla },
+                                    { key: 'generic',  label: 'GENÉRICO',   active: comp.is_generic },
+                                    { key: 'mezcla',   label: 'MEZCLA',     active: comp.is_mezcla },
+                                  ].map(btn => (
+                                    <button key={btn.key} type="button"
+                                      onClick={() => {
+                                        if (btn.key === 'generic')  handleUpdateComponent(idx, 'is_generic', true);
+                                        if (btn.key === 'mezcla')   handleUpdateComponent(idx, 'is_mezcla', true);
+                                        if (btn.key === 'specific') {
+                                          const newC = [...editorData.componentes];
+                                          newC[idx] = { ...newC[idx], is_generic: false, is_mezcla: false, tipo_insumo: '', insumo_nombre_manual: '' };
+                                          setEditorData(p => ({ ...p, componentes: newC }));
+                                        }
+                                      }}
+                                      className={`px-2 py-0.5 rounded text-[9px] font-black tracking-widest transition-all ${
+                                        btn.active
+                                          ? btn.key === 'mezcla' ? 'bg-brand-teal text-black' : 'bg-brand-red text-white'
+                                          : 'bg-slate-800 text-slate-500 hover:text-slate-300'
+                                      }`}
                                     >
-                                      {comp.is_generic ? 'GENÉRICO' : 'ESPECÍFICO'}
+                                      {btn.label}
                                     </button>
-                                    <span className="text-[10px] font-bold text-slate-500">
-                                      {comp.is_generic ? 'Promedio por categoría' : 'Marca exacta'}
-                                    </span>
-                                  </div>
+                                  ))}
                                 </div>
 
                                 <div className="flex gap-2">
                                   <div className="flex-1">
-                                    {comp.is_generic ? (
+                                    {comp.is_mezcla ? (
+                                      <SearchableSelect
+                                        options={mezclaOptions}
+                                        value={comp.insumo_nombre_manual}
+                                        onChange={(val) => handleUpdateComponent(idx, 'insumo_nombre_manual', val)}
+                                        placeholder="Seleccionar mezcla..."
+                                      />
+                                    ) : comp.is_generic ? (
                                       <SearchableSelect
                                         options={genericOptions}
                                         value={comp.tipo_insumo}
@@ -574,6 +624,22 @@ const RecipesPage = () => {
                                     <div className="text-sm font-black text-emerald-400">${cost.toFixed(2)}</div>
                                   </div>
                                 </div>
+
+                                {/* Preview desglose de mezcla */}
+                                {comp.is_mezcla && mezclaComps.length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-1.5 px-1">
+                                    {mezclaComps.map((m, i) => {
+                                      const pct = mezclaTotal > 0 ? ((Number(m.cantidad) / mezclaTotal) * 100).toFixed(0) : 0;
+                                      const qty = comp.cantidad ? (parseFloat(comp.cantidad) * Number(m.cantidad) / mezclaTotal).toFixed(1) : '—';
+                                      return (
+                                        <span key={i} className="text-[9px] font-bold text-slate-500 bg-brand-teal/5 border border-brand-teal/10 px-2 py-0.5 rounded-full">
+                                          {m.insumos?.marca}: <span className="text-brand-teal">{qty} {comp.unidad}</span>
+                                          <span className="text-slate-600 ml-1">({pct}%)</span>
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                )}
 
                                 <button onClick={() => handleRemoveComponent(idx)}
                                   className="absolute -right-2 -top-2 w-5 h-5 bg-slate-800 text-slate-500 hover:text-brand-red rounded-full flex items-center justify-center border border-white/10 opacity-0 group-hover:opacity-100 transition-all z-10">

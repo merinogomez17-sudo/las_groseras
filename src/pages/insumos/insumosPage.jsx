@@ -89,7 +89,7 @@ export default function InsumosPage() {
   const [mezclas, setMezclas]             = useState([]);
   const [genericosNames, setGenericosNames] = useState([]);
   const [editingMezcla, setEditingMezcla] = useState(null); // nombre_generico
-  const [mezclaForm, setMezclaForm]       = useState({ nombre_generico: '', componentes: [{ insumo_id: '', porcentaje: 0 }] });
+  const [mezclaForm, setMezclaForm]       = useState({ nombre_generico: '', componentes: [{ insumo_id: '', cantidad: '' }] });
   const [savingMezcla, setSavingMezcla]   = useState(false);
 
 
@@ -224,7 +224,7 @@ export default function InsumosPage() {
 
   const openNewMezcla = () => {
     setEditingMezcla(null);
-    setMezclaForm({ nombre_generico: '', componentes: [{ insumo_id: '', porcentaje: 0 }] });
+    setMezclaForm({ nombre_generico: '', componentes: [{ insumo_id: '', cantidad: '' }] });
     setPanel(PANEL.MEZCLA);
   };
 
@@ -232,7 +232,7 @@ export default function InsumosPage() {
     setEditingMezcla(nombreGenerico);
     setMezclaForm({
       nombre_generico: nombreGenerico,
-      componentes: items.map(m => ({ insumo_id: m.insumo_id, porcentaje: m.porcentaje }))
+      componentes: items.map(m => ({ insumo_id: m.insumo_id, cantidad: m.cantidad }))
     });
     setPanel(PANEL.MEZCLA);
   };
@@ -240,9 +240,8 @@ export default function InsumosPage() {
   // ── CRUD Mezclas ──────────────────────────────────────────────
   const handleSaveMezcla = async (e) => {
     e.preventDefault();
-    const total = mezclaForm.componentes.reduce((acc, curr) => acc + Number(curr.porcentaje), 0);
-    if (Math.abs(total - 100) > 0.01) {
-      toast.error(`Los porcentajes deben sumar exactamente 100% (actual: ${total}%)`);
+    if (mezclaForm.componentes.some(c => !c.insumo_id || !c.cantidad || Number(c.cantidad) <= 0)) {
+      toast.error('Todos los componentes deben tener insumo y cantidad mayor a 0');
       return;
     }
 
@@ -255,7 +254,7 @@ export default function InsumosPage() {
       const payload = mezclaForm.componentes.map(c => ({
         nombre_generico: mezclaForm.nombre_generico,
         insumo_id: c.insumo_id,
-        porcentaje: c.porcentaje
+        cantidad: Number(c.cantidad)
       }));
 
       const { error } = await supabase.from('insumo_mezclas').insert(payload);
@@ -460,25 +459,26 @@ export default function InsumosPage() {
           ) : (
             Object.keys(mezclasGrouped).sort().map((nombreGen) => {
               const components = mezclasGrouped[nombreGen];
-              const totalPct = components.reduce((acc, curr) => acc + Number(curr.porcentaje), 0);
-              const isInvalid = Math.abs(totalPct - 100) > 0.01;
+              const totalCantidad = components.reduce((acc, curr) => acc + Number(curr.cantidad), 0);
               return (
                 <div key={nombreGen} className="glass border-white/5 p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-lg font-black text-white tracking-tight">{nombreGen}</h3>
-                      {isInvalid && (
-                        <span className="text-[9px] font-black bg-rose-500/10 text-rose-400 px-2 py-0.5 rounded-full border border-rose-500/20 uppercase tracking-widest">
-                          ⚠️ Error: {totalPct}%
-                        </span>
-                      )}
+                      <span className="text-[9px] font-black bg-white/5 text-slate-500 px-2 py-0.5 rounded-full border border-white/5 uppercase tracking-widest">
+                        Total: {totalCantidad} unidades
+                      </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {components.map((c, idx) => (
-                        <span key={idx} className="text-[10px] font-bold text-slate-400 bg-white/5 px-2 py-1 rounded-lg">
-                          {c.insumos?.marca}: <span className="text-brand-teal">{c.porcentaje}%</span>
-                        </span>
-                      ))}
+                      {components.map((c, idx) => {
+                        const pct = totalCantidad > 0 ? ((Number(c.cantidad) / totalCantidad) * 100).toFixed(1) : 0;
+                        return (
+                          <span key={idx} className="text-[10px] font-bold text-slate-400 bg-white/5 px-2 py-1 rounded-lg">
+                            {c.insumos?.marca}: <span className="text-brand-teal">{c.cantidad}</span>
+                            <span className="text-slate-600 ml-1">({pct}%)</span>
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                   <div className="flex gap-2 shrink-0">
@@ -519,7 +519,7 @@ export default function InsumosPage() {
               transition={{ duration: 0.25, ease: 'easeOut' }}
               className="w-[400px] shrink-0 sticky top-6"
             >
-              <div className="glass border-white/5 p-7 relative">
+              <div className="glass border-white/5 p-7 relative max-h-[calc(100vh-6rem)] overflow-y-auto custom-scrollbar">
 
                 {/* Cerrar */}
                 <button
@@ -612,7 +612,7 @@ export default function InsumosPage() {
                       {editingMezcla ? 'Editar desglose' : 'Nuevo desglose'}
                     </h2>
                     <p className="text-slate-500 text-xs font-bold tracking-widest mb-6">
-                      Define la proporción de marcas para genéricos
+                      Ingresa la cantidad real de cada insumo — el sistema calcula la proporción
                     </p>
 
                     <form onSubmit={handleSaveMezcla} className="space-y-6">
@@ -633,10 +633,12 @@ export default function InsumosPage() {
 
                       <div className="space-y-3">
                         <div className="flex justify-between items-center px-1">
-                          <label className="text-xs font-black text-slate-500 tracking-widest uppercase">Marcas y Proporciones</label>
-                          <span className={`text-[10px] font-black ${Math.abs(mezclaForm.componentes.reduce((acc, curr) => acc + Number(curr.porcentaje), 0) - 100) > 0.01 ? 'text-rose-400' : 'text-brand-teal'}`}>
-                            TOTAL: {mezclaForm.componentes.reduce((acc, curr) => acc + Number(curr.porcentaje), 0)}%
-                          </span>
+                          <label className="text-xs font-black text-slate-500 tracking-widest uppercase">Componentes</label>
+                          {mezclaForm.componentes.length > 0 && (
+                            <span className="text-[10px] font-black text-slate-600">
+                              Total: {mezclaForm.componentes.reduce((acc, c) => acc + Number(c.cantidad || 0), 0)} unidades
+                            </span>
+                          )}
                         </div>
 
                         {mezclaForm.componentes.map((comp, idx) => (
@@ -653,14 +655,15 @@ export default function InsumosPage() {
                                 }}
                               />
                             </div>
-                            <div className="w-20">
+                            <div className="w-24">
                               <input
-                                required type="number" step="1" min="1" max="100"
-                                className="input-field text-center"
-                                value={comp.porcentaje}
+                                required type="number" step="0.01" min="0.01"
+                                placeholder="Cant."
+                                className="input-field text-center font-black text-brand-teal"
+                                value={comp.cantidad}
                                 onChange={(e) => {
                                   const newC = [...mezclaForm.componentes];
-                                  newC[idx].porcentaje = e.target.value;
+                                  newC[idx].cantidad = e.target.value;
                                   setMezclaForm(p => ({ ...p, componentes: newC }));
                                 }}
                               />
@@ -681,7 +684,7 @@ export default function InsumosPage() {
 
                         <button
                           type="button"
-                          onClick={() => setMezclaForm(p => ({ ...p, componentes: [...p.componentes, { insumo_id: '', porcentaje: 0 }] }))}
+                          onClick={() => setMezclaForm(p => ({ ...p, componentes: [...p.componentes, { insumo_id: '', cantidad: '' }] }))}
                           className="w-full py-3 border border-dashed border-white/10 rounded-xl text-[10px] font-black text-slate-500 hover:text-brand-teal hover:border-brand-teal/30 transition-all uppercase tracking-widest"
                         >
                           + Agregar insumo a la mezcla
