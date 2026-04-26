@@ -190,11 +190,13 @@ const RecipesPage = () => {
   };
 
   const openDetail = (recipe) => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setSelectedRecipe(recipe);
     setPanel(PANEL.DETAIL);
   };
 
   const openEditor = (recipe = null) => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     if (recipe) {
       const mezclaNames = new Set(mezclas.map(m => m.nombre_generico.toLowerCase()));
       setEditorData({

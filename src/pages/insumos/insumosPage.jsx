@@ -159,14 +159,15 @@ export default function InsumosPage() {
 
   // ── Panel helpers ────────────────────────────────────────────
   const closePanel = () => setPanel(PANEL.NONE);
-
   const openNewInsumo = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setEditingInsumo(null);
     setInsumoForm(EMPTY_INSUMO);
     setPanel(PANEL.INSUMO);
   };
 
   const openEditInsumo = (item) => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setEditingInsumo(item);
     setInsumoForm({
       tipo_insumo:     item.tipo_insumo,
@@ -223,12 +224,14 @@ export default function InsumosPage() {
   };
 
   const openNewMezcla = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setEditingMezcla(null);
     setMezclaForm({ nombre_generico: '', componentes: [{ insumo_id: '', cantidad: '' }] });
     setPanel(PANEL.MEZCLA);
   };
 
   const openEditMezcla = (nombreGenerico, items) => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setEditingMezcla(nombreGenerico);
     setMezclaForm({
       nombre_generico: nombreGenerico,

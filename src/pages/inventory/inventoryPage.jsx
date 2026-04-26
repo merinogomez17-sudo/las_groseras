@@ -128,6 +128,7 @@ const InventoryPage = () => {
   };
 
   const openPanel = (item = null) => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setPanelInsumoSearch('');
     setPanelInsumoSelected(null);
     if (item) {
