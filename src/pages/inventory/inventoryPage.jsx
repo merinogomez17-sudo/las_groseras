@@ -39,6 +39,7 @@ const TIPOS = [
 const fmt = (n) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const InventoryPage = () => {
+  const [activeTab, setActiveTab]             = useState('stock'); // 'stock', 'compra', 'historial'
   const [items, setItems]                   = useState([]);
   const [loading, setLoading]               = useState(true);
   const [searchTerm, setSearchTerm]         = useState('');
@@ -48,6 +49,10 @@ const InventoryPage = () => {
   const [editingItem, setEditingItem]       = useState(null);
   const [formData, setFormData]             = useState(EMPTY_FORM);
   const [expandedProducts, setExpandedProducts] = useState({});
+
+  // Ajuste manual de stock
+  const [adjustingItem, setAdjustingItem]     = useState(null);
+  const [adjustQty, setAdjustQty]             = useState(1);
 
   // Registro de compra
   const [insumos, setInsumos]                 = useState([]);
@@ -91,7 +96,7 @@ const InventoryPage = () => {
         .from('compras')
         .select('*, insumos(marca, presentacion, tipo_insumo)')
         .order('fecha_compra', { ascending: false })
-        .limit(10);
+        .limit(20);
       if (error) throw error;
       setCompras(data || []);
     } catch (error) {
@@ -194,38 +199,96 @@ const InventoryPage = () => {
   const handleSaveCompra = async (e) => {
     e.preventDefault();
     setSavingCompra(true);
+    const loadingToast = toast.loading('Registrando compra y actualizando inventario...');
     try {
       let insumoId = selectedInsumo?.id;
+      let targetInsumo = selectedInsumo;
 
       if (showNewInComp) {
         const payload = {
           tipo_insumo:     insumoForm.tipo_insumo,
           marca:           insumoForm.marca.trim(),
           presentacion:    insumoForm.presentacion.trim(),
-          precio_promedio: parseFloat(insumoForm.precio_promedio) || 0,
+          precio_promedio: parseFloat(compraForm.precio_total_compra) / parseFloat(compraForm.cantidad_comprada),
           ml_gr_pieza:     parseFloat(insumoForm.ml_gr_pieza),
+          total_unidades_compradas: parseFloat(compraForm.cantidad_comprada)
         };
         const { data, error } = await supabase.from('insumos').insert([payload]).select().single();
         if (error) throw error;
         insumoId = data.id;
+        targetInsumo = data;
       }
 
-      const { error } = await supabase.from('compras').insert([{
+      // 1. Insertar en tabla compras
+      const { error: compError } = await supabase.from('compras').insert([{
         insumo_id:           insumoId,
         fecha_compra:        compraForm.fecha_compra,
         cantidad_comprada:   parseFloat(compraForm.cantidad_comprada),
         precio_total_compra: parseFloat(compraForm.precio_total_compra),
       }]);
-      if (error) throw error;
+      if (compError) throw compError;
 
-      toast.success('Compra registrada correctamente');
-      closePanel();
+      // 2. Actualizar Insumo (precio promedio, total unidades, precio x ml)
+      if (!showNewInComp && targetInsumo) {
+        const oldTotal = parseFloat(targetInsumo.total_unidades_compradas || 0);
+        const newQty   = parseFloat(compraForm.cantidad_comprada);
+        const oldPrice = parseFloat(targetInsumo.precio_promedio || 0);
+        const newTotalPay = parseFloat(compraForm.precio_total_compra);
+        
+        const newTotalUnits = oldTotal + newQty;
+        const newAvgPrice   = ((oldPrice * oldTotal) + newTotalPay) / newTotalUnits;
+        const precioXMl     = newTotalPay / (newQty * (parseFloat(targetInsumo.ml_gr_pieza) || 1));
+
+        await supabase.from('insumos').update({
+          precio_promedio: newAvgPrice,
+          total_unidades_compradas: newTotalUnits,
+          precio_x_ml: precioXMl
+        }).eq('id', insumoId);
+      }
+
+      // 3. Sumar al inventario físico
+      const { data: invItem } = await supabase
+        .from('inventario')
+        .select('id, cantidad_actual')
+        .eq('insumo_id', insumoId)
+        .maybeSingle();
+
+      if (invItem) {
+        const { error: invError } = await supabase.from('inventario').update({
+          cantidad_actual: parseFloat(invItem.cantidad_actual || 0) + parseFloat(compraForm.cantidad_comprada)
+        }).eq('id', invItem.id);
+        if (invError) throw invError;
+      } else {
+        toast.info('Compra registrada, pero no se encontró un item vinculado en Stock físico.');
+      }
+
+      toast.success('Compra y Stock actualizados correctamente', { id: loadingToast });
+      setActiveTab('stock');
       fetchCompras();
-      fetchInsumos(); // Refresh insumos to update price/stock if triggers exist
+      fetchInsumos();
+      fetchInventory();
     } catch (e) {
-      toast.error('Error: ' + e.message);
+      toast.error('Error: ' + e.message, { id: loadingToast });
     } finally {
       setSavingCompra(false);
+    }
+  };
+
+  const handleManualAdjust = async (item, type) => {
+    const qty = parseFloat(adjustQty);
+    if (isNaN(qty) || qty <= 0) return;
+
+    const loadingToast = toast.loading('Ajustando stock...');
+    try {
+      const newQty = type === 'add' ? (item.cantidad_actual + qty) : (item.cantidad_actual - qty);
+      const { error } = await supabase.from('inventario').update({ cantidad_actual: Math.max(0, newQty) }).eq('id', item.id);
+      if (error) throw error;
+      toast.success('Stock ajustado', { id: loadingToast });
+      setAdjustingItem(null);
+      setAdjustQty(1);
+      fetchInventory();
+    } catch (e) {
+      toast.error('Error: ' + e.message, { id: loadingToast });
     }
   };
 
@@ -381,515 +444,486 @@ const InventoryPage = () => {
         ))}
       </div>
 
-      {/* FILTROS */}
-      <div className="glass p-4 flex flex-col md:flex-row gap-4 items-center justify-between border-white/5">
-        <div className="relative w-full lg:w-96 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-red transition-colors" size={18} />
-          <input
-            type="text" placeholder="Buscar por nombre o proveedor..."
-            className="input-field pl-12 bg-white/5 focus:bg-white/10"
-            value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
-          <Filter size={16} className="text-brand-red" />
-          <select
-            className="bg-transparent focus:outline-none text-white text-[15px] font-bold tracking-widest cursor-pointer"
-            value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
+      {/* TABS SELECTOR */}
+      <div className="flex gap-2 p-1 bg-slate-900/40 rounded-2xl border border-white/5 backdrop-blur-md">
+        {[
+          { id: 'stock', label: 'Stock Actual', icon: Package },
+          { id: 'compra', label: 'Registrar Compra', icon: ShoppingCart },
+          { id: 'historial', label: 'Historial', icon: Calendar }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => { setActiveTab(tab.id); setPanel(PANEL.NONE); }}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black tracking-widest transition-all
+              ${activeTab === tab.id ? 'bg-brand-red text-white shadow-lg shadow-brand-red/20' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
           >
-            {categories.map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
-          </select>
-        </div>
+            <tab.icon size={18} />
+            <span className="hidden sm:inline">{tab.label}</span>
+          </button>
+        ))}
       </div>
 
-      {/* SPLIT VIEW */}
-      <div className="flex gap-5 items-start">
+      {activeTab === 'stock' && (
+        <div className="space-y-6">
+          {/* FILTROS */}
+          <div className="glass p-4 flex flex-col md:flex-row gap-4 items-center justify-between border-white/5">
+            <div className="relative w-full lg:w-96 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-red transition-colors" size={18} />
+              <input
+                type="text" placeholder="Buscar por nombre o proveedor..."
+                className="input-field pl-12 bg-white/5 focus:bg-white/10"
+                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
+              <Filter size={16} className="text-brand-red" />
+              <select
+                className="bg-transparent focus:outline-none text-white text-[15px] font-bold tracking-widest cursor-pointer"
+                value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                {categories.map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
+              </select>
+            </div>
+          </div>
 
-        {/* TABLA */}
-        <div className="flex-1 min-w-0 glass overflow-hidden shadow-2xl border-white/5">
+          <div className="flex gap-5 items-start">
+            {/* TABLA */}
+            <div className="flex-1 min-w-0 glass overflow-hidden shadow-2xl border-white/5">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-white/[0.02] border-b border-white/5">
+                    <tr>
+                      <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Insumo & Presentación</th>
+                      {panel === PANEL.NONE && <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Categoría</th>}
+                      <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Stock</th>
+                      {panel === PANEL.NONE && <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500 text-center">Pzas/U</th>}
+                      <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500 text-right">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.03]">
+                    {productList.map((product) => (
+                      <React.Fragment key={product.name}>
+                        <motion.tr
+                          className="hover:bg-white/[0.04] transition-colors group cursor-pointer border-l-4 border-transparent hover:border-brand-red"
+                          onClick={() => toggleProduct(product.name)}
+                        >
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-lg bg-white/5 transition-transform duration-300 ${expandedProducts[product.name] ? 'rotate-90' : ''}`}>
+                                <Plus size={13} className={expandedProducts[product.name] ? 'hidden' : 'block'} />
+                                <div className={expandedProducts[product.name] ? 'block' : 'hidden'} style={{width: 13, height: 2, background: 'currentColor'}} />
+                              </div>
+                              <div>
+                                <div className="font-black text-white text-base tracking-tight group-hover:text-brand-red transition-colors">{product.name}</div>
+                                <div className="text-[12px] text-slate-500 font-bold">{product.presentations.length} presentaciones</div>
+                              </div>
+                            </div>
+                          </td>
+                          {panel === PANEL.NONE && (
+                            <td className="px-6 py-5">
+                              <span className="px-3 py-1.5 rounded-lg bg-white/5 text-[12px] font-black tracking-widest text-slate-400 border border-white/5">
+                                {product.category}
+                              </span>
+                            </td>
+                          )}
+                          <td className="px-6 py-5">
+                            <div className={`text-base font-black tracking-tighter ${product.hasAlert ? 'text-brand-red flex items-center gap-1.5' : 'text-emerald-400'}`}>
+                              {product.totalStock} <span className="opacity-50 lowercase">{product.unit}</span>
+                              {product.hasAlert && <AlertTriangle size={13} className="animate-bounce" />}
+                            </div>
+                          </td>
+                          {panel === PANEL.NONE && <td className="px-6 py-5 text-center text-slate-500">—</td>}
+                          <td className="px-6 py-5 text-right">
+                            <div className="text-slate-600 group-hover:text-brand-red transition-colors font-black text-[12px] tracking-widest">
+                              {expandedProducts[product.name] ? 'Cerrar' : 'Ver'}
+                            </div>
+                          </td>
+                        </motion.tr>
+
+                        <AnimatePresence>
+                          {expandedProducts[product.name] && product.presentations.map((item) => {
+                            const unitPrice = item.precio_unitario / (item.piezas_por_unidad || 1);
+                            return (
+                              <motion.tr
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                key={item.id}
+                                className={`bg-white/[0.01] hover:bg-white/[0.03] transition-colors group/row border-l-4 border-brand-red/30 ${editingItem?.id === item.id ? 'bg-brand-red/5' : ''}`}
+                              >
+                                <td className="px-6 py-4 pl-16">
+                                  <div className="flex items-center gap-2">
+                                    <div className="font-bold text-slate-200 text-base">{item.formato || 'Estándar'}</div>
+                                    {!item.insumo_id && (
+                                      <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded uppercase font-black">Sin Vincular</span>
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 font-bold">{item.proveedor || 'S/N'}</div>
+                                </td>
+                                {panel === PANEL.NONE && <td className="px-6 py-4" />}
+                                <td className="px-6 py-4">
+                                  <div className={`text-base font-black tracking-tighter ${item.cantidad_actual <= item.cantidad_minima ? 'text-brand-red' : 'text-slate-300'}`}>
+                                    {item.cantidad_actual} <span className="opacity-40">{item.unidad}</span>
+                                  </div>
+                                </td>
+                                {panel === PANEL.NONE && (
+                                  <td className="px-6 py-4 text-center">
+                                    <div className="bg-white/5 py-1 px-2 rounded-lg inline-block border border-white/5 text-[13px] font-black text-slate-400">
+                                      x {item.piezas_por_unidad || 1}
+                                    </div>
+                                  </td>
+                                )}
+                                <td className="px-6 py-4 text-right">
+                                  <div className="flex justify-end gap-1">
+                                    <button onClick={(e) => { e.stopPropagation(); setAdjustingItem(item); }}
+                                      title="Ajustar stock"
+                                      className="p-2 hover:bg-brand-yellow/10 rounded-lg text-brand-yellow/60 hover:text-brand-yellow">
+                                      <RefreshCw size={13} />
+                                    </button>
+                                    <button onClick={(e) => { e.stopPropagation(); openPanel(item); }}
+                                      className="p-2 hover:bg-emerald-500/10 rounded-lg text-emerald-400/60 hover:text-emerald-400">
+                                      <Edit2 size={13} />
+                                    </button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                                      className="p-2 hover:bg-brand-red/10 rounded-lg text-brand-red/60 hover:text-brand-red">
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </motion.tr>
+                            );
+                          })}
+                        </AnimatePresence>
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* PANEL DERECHO EDITAR */}
+            <AnimatePresence>
+              {panel === PANEL.FORM && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+                  className="w-96 glass border-white/5 p-6 shrink-0 sticky top-6"
+                >
+                  <button onClick={closePanel} className="absolute right-4 top-4 text-slate-500 hover:text-white"><X size={18}/></button>
+                  <h2 className="text-xl font-black text-white tracking-tighter mb-4 flex items-center gap-2">
+                    {editingItem ? <Edit2 size={18} className="text-emerald-400" /> : <Plus size={18} className="text-brand-red" />}
+                    {editingItem ? 'Editar Insumo' : 'Nuevo Insumo'}
+                  </h2>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">Producto Base</label>
+                      <input required type="text" list="base-product-list" className="input-field text-sm"
+                        value={formData.producto_base} onChange={(e) => handleBaseNameChange(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">Formato</label>
+                      <input required type="text" className="input-field text-sm"
+                        value={formData.formato} onChange={(e) => setFormData({...formData, formato: e.target.value})} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">Stock Actual</label>
+                        <input type="number" className="input-field text-sm font-black text-brand-teal"
+                          value={formData.cantidad_actual} onChange={(e) => setFormData({...formData, cantidad_actual: Number(e.target.value)})} />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">Min. Requerido</label>
+                        <input type="number" className="input-field text-sm font-bold text-brand-red"
+                          value={formData.cantidad_minima} onChange={(e) => setFormData({...formData, cantidad_minima: Number(e.target.value)})} />
+                      </div>
+                    </div>
+                    <div className="pt-4">
+                      <button type="submit" className="btn-primary w-full py-3 font-black">
+                        <Save size={16} /> GUARDAR CAMBIOS
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'compra' && (
+        <div className="max-w-3xl mx-auto">
+          <div className="glass p-8 space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-black text-white tracking-tighter flex items-center gap-3">
+                  <ShoppingCart size={24} className="text-brand-yellow" />
+                  Registrar Nueva Compra
+                </h2>
+                <p className="text-slate-500 text-sm font-bold mt-1">El stock se actualizará automáticamente al guardar</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveCompra} className="space-y-6">
+              {/* Toggle existente/nuevo */}
+              <div className="flex gap-2 p-1 bg-white/5 rounded-xl border border-white/5">
+                <button type="button"
+                  onClick={() => { setShowNewInComp(false); setSelectedInsumo(null); setCompraSearch(''); }}
+                  className={`flex-1 py-3 rounded-lg text-xs font-black tracking-widest transition-all
+                    ${!showNewInComp ? 'bg-brand-teal text-black' : 'text-slate-400 hover:text-slate-200'}`}>
+                  CATÁLOGO EXISTENTE
+                </button>
+                <button type="button"
+                  onClick={() => { setShowNewInComp(true); setSelectedInsumo(null); setCompraSearch(''); setInsumoForm(EMPTY_INSUMO); }}
+                  className={`flex-1 py-3 rounded-lg text-xs font-black tracking-widest transition-all
+                    ${showNewInComp ? 'bg-brand-yellow text-black' : 'text-slate-400 hover:text-slate-200'}`}>
+                  NUEVO PRODUCTO
+                </button>
+              </div>
+
+              {/* Insumo existente */}
+              {!showNewInComp && (
+                <div className="space-y-3">
+                  <label className="block text-xs font-black text-slate-500 tracking-widest uppercase">Seleccionar Producto del Catálogo</label>
+                  <div className="relative">
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type="text" placeholder="Buscar por marca o presentación..."
+                      className="input-field pl-12"
+                      value={compraSearch}
+                      onChange={e => { setCompraSearch(e.target.value); setSelectedInsumo(null); }}
+                    />
+                  </div>
+
+                  {searchResults.length > 0 && !selectedInsumo && (
+                    <div className="rounded-2xl border border-white/10 overflow-hidden bg-slate-900/50 shadow-2xl">
+                      {searchResults.map(item => (
+                        <button key={item.id} type="button"
+                          onClick={() => { setSelectedInsumo(item); setCompraSearch(`${item.marca} — ${item.presentacion}`); }}
+                          className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors text-left border-b border-white/5 last:border-0"
+                        >
+                          <div>
+                            <p className="text-base font-bold text-slate-200">{item.marca}</p>
+                            <p className="text-xs text-slate-500 font-bold">{item.tipo_insumo} · {item.presentacion}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs text-slate-500 block">Precio Actual</span>
+                            <span className="text-base font-black text-emerald-400">${fmt(item.precio_promedio)}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {selectedInsumo && (
+                    <div className="p-6 rounded-2xl bg-brand-teal/5 border border-brand-teal/20 flex justify-between items-center shadow-xl shadow-brand-teal/5">
+                      <div>
+                        <p className="text-lg font-black text-white">{selectedInsumo.marca}</p>
+                        <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">{selectedInsumo.tipo_insumo} · {selectedInsumo.presentacion}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] text-slate-500 font-black tracking-widest uppercase mb-1">Costo Promedio</p>
+                        <p className="text-2xl font-black text-emerald-400">${fmt(selectedInsumo.precio_promedio)}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Insumo nuevo */}
+              {showNewInComp && (
+                <div className="space-y-4 p-6 rounded-2xl bg-white/[0.02] border border-white/5">
+                  <h3 className="text-xs font-black text-brand-yellow tracking-[0.2em] uppercase mb-4">Detalles del nuevo catálogo</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Tipo</label>
+                      <select required className="input-field font-bold" value={insumoForm.tipo_insumo}
+                        onChange={e => setInsumoForm(p => ({ ...p, tipo_insumo: e.target.value }))}>
+                        {TIPOS.map(t => <option key={t} value={t} className="bg-slate-900">{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Marca</label>
+                      <input required type="text" placeholder="Ej: Bacardi" className="input-field"
+                        value={insumoForm.marca} onChange={e => setInsumoForm(p => ({ ...p, marca: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Presentación</label>
+                      <input required type="text" placeholder="Ej: 750 ml" className="input-field"
+                        value={insumoForm.presentacion} onChange={e => setInsumoForm(p => ({ ...p, presentacion: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">ML / GR / Pieza</label>
+                      <input required type="number" step="0.01" className="input-field font-black"
+                        value={insumoForm.ml_gr_pieza} onChange={e => setInsumoForm(p => ({ ...p, ml_gr_pieza: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Datos de la compra */}
+              {(selectedInsumo || showNewInComp) && (
+                <div className="space-y-6 p-6 rounded-2xl bg-brand-yellow/5 border border-brand-yellow/20">
+                  <h3 className="text-xs font-black text-brand-yellow tracking-[0.2em] uppercase">Datos de la Transacción</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Fecha</label>
+                      <input type="date" required className="input-field"
+                        value={compraForm.fecha_compra} onChange={e => setCompraForm(p => ({ ...p, fecha_compra: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Cantidad</label>
+                      <input required type="number" step="0.01" className="input-field font-black text-brand-teal"
+                        value={compraForm.cantidad_comprada} onChange={e => setCompraForm(p => ({ ...p, cantidad_comprada: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-500 tracking-widest mb-2 uppercase">Total Pagado ($)</label>
+                      <input required type="number" step="0.01" className="input-field font-black text-emerald-400"
+                        value={compraForm.precio_total_compra} onChange={e => setCompraForm(p => ({ ...p, precio_total_compra: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-brand-yellow/10 flex justify-between items-center">
+                    <div className="text-sm font-bold text-slate-400">
+                      Costo unitario de esta compra: <span className="text-white">${fmt(parseFloat(compraForm.precio_total_compra || 0) / parseFloat(compraForm.cantidad_comprada || 1))}</span>
+                    </div>
+                    <button type="submit" disabled={savingCompra} className="btn-primary px-10 py-4 font-black shadow-2xl shadow-brand-red/30">
+                      {savingCompra ? 'PROCESANDO...' : 'GUARDAR Y ACTUALIZAR STOCK'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'historial' && (
+        <div className="glass overflow-hidden shadow-2xl border-white/5">
+          <div className="p-8 border-b border-white/5 flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-black text-white tracking-tighter flex items-center gap-3">
+                <ShoppingCart size={24} className="text-brand-yellow" />
+                Historial de Compras
+              </h2>
+              <p className="text-slate-500 text-sm font-bold mt-1">Registro cronológico de abastecimiento</p>
+            </div>
+            <button onClick={fetchCompras} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-slate-400 transition-all">
+              <RefreshCw size={20} className={loadingCompras ? 'animate-spin' : ''} />
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
-              <thead className="bg-white/[0.02] border-b border-white/5">
+              <thead className="bg-white/[0.02]">
                 <tr>
-                  <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Insumo & Presentación</th>
-                  {panel === PANEL.NONE && <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Categoría</th>}
-                  <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Stock</th>
-                  {panel === PANEL.NONE && <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500 text-center">Pzas/U</th>}
-                  {panel === PANEL.NONE && <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500">Precios</th>}
-                  <th className="px-6 py-5 text-[13px] font-black tracking-widest text-slate-500 text-right">Acción</th>
+                  <th className="px-8 py-5 text-[11px] font-black tracking-widest text-slate-500 uppercase">Fecha</th>
+                  <th className="px-8 py-5 text-[11px] font-black tracking-widest text-slate-500 uppercase">Producto (Catálogo)</th>
+                  <th className="px-8 py-5 text-[11px] font-black tracking-widest text-slate-500 uppercase">Tipo / Presentación</th>
+                  <th className="px-8 py-5 text-[11px] font-black tracking-widest text-slate-500 uppercase text-right">Cantidad</th>
+                  <th className="px-8 py-5 text-[11px] font-black tracking-widest text-slate-500 uppercase text-right">Total</th>
+                  <th className="px-8 py-5 text-[11px] font-black tracking-widest text-slate-500 uppercase text-right">Unitario</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.03]">
-                {productList.map((product) => (
-                  <React.Fragment key={product.name}>
-                    <motion.tr
-                      className="hover:bg-white/[0.04] transition-colors group cursor-pointer border-l-4 border-transparent hover:border-brand-red"
-                      onClick={() => toggleProduct(product.name)}
-                    >
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg bg-white/5 transition-transform duration-300 ${expandedProducts[product.name] ? 'rotate-90' : ''}`}>
-                            <Plus size={13} className={expandedProducts[product.name] ? 'hidden' : 'block'} />
-                            <div className={expandedProducts[product.name] ? 'block' : 'hidden'} style={{width: 13, height: 2, background: 'currentColor'}} />
-                          </div>
-                          <div>
-                            <div className="font-black text-white text-base tracking-tight group-hover:text-brand-red transition-colors">{product.name}</div>
-                            <div className="text-[12px] text-slate-500 font-bold">{product.presentations.length} presentaciones</div>
-                          </div>
-                        </div>
+                {loadingCompras ? (
+                  <tr><td colSpan="6" className="px-8 py-20 text-center text-slate-500 animate-pulse font-bold">Cargando historial...</td></tr>
+                ) : compras.length === 0 ? (
+                  <tr><td colSpan="6" className="px-8 py-20 text-center text-slate-500 italic">No hay compras registradas</td></tr>
+                ) : compras.map(compra => {
+                  const uPrice = compra.precio_total_compra / compra.cantidad_comprada;
+                  return (
+                    <tr key={compra.id} className="hover:bg-white/[0.01] transition-colors group">
+                      <td className="px-8 py-5 text-sm text-slate-400 font-bold">
+                        {new Date(compra.fecha_compra).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </td>
-                      {panel === PANEL.NONE && (
-                        <td className="px-6 py-5">
-                          <span className="px-3 py-1.5 rounded-lg bg-white/5 text-[12px] font-black tracking-widest text-slate-400 border border-white/5">
-                            {product.category}
-                          </span>
-                        </td>
-                      )}
-                      <td className="px-6 py-5">
-                        <div className={`text-base font-black tracking-tighter ${product.hasAlert ? 'text-brand-red flex items-center gap-1.5' : 'text-emerald-400'}`}>
-                          {product.totalStock} <span className="opacity-50 lowercase">{product.unit}</span>
-                          {product.hasAlert && <AlertTriangle size={13} className="animate-bounce" />}
-                        </div>
+                      <td className="px-8 py-5">
+                        <div className="font-black text-white tracking-tight">{compra.insumos?.marca}</div>
                       </td>
-                      {panel === PANEL.NONE && <td className="px-6 py-5 text-center text-slate-500">—</td>}
-                      {panel === PANEL.NONE && <td className="px-6 py-5 text-slate-500 text-[14px]">Agrupado</td>}
-                      <td className="px-6 py-5 text-right">
-                        <div className="text-slate-600 group-hover:text-brand-red transition-colors font-black text-[12px] tracking-widest">
-                          {expandedProducts[product.name] ? 'Cerrar' : 'Ver'}
-                        </div>
+                      <td className="px-8 py-5 text-xs text-slate-500 font-bold uppercase tracking-tighter">
+                        {compra.insumos?.tipo_insumo} · {compra.insumos?.presentacion}
                       </td>
-                    </motion.tr>
-
-                    <AnimatePresence>
-                      {expandedProducts[product.name] && product.presentations.map((item) => {
-                        const unitPrice = item.precio_unitario / (item.piezas_por_unidad || 1);
-                        return (
-                          <motion.tr
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            key={item.id}
-                            className={`bg-white/[0.01] hover:bg-white/[0.03] transition-colors group/row border-l-4 border-brand-red/30 ${editingItem?.id === item.id ? 'bg-brand-red/5' : ''}`}
-                          >
-                            <td className="px-6 py-4 pl-16">
-                              <div className="font-bold text-slate-200 text-base">{item.formato || 'Estándar'}</div>
-                              <div className="text-[11px] text-slate-500 font-bold">{item.proveedor || 'S/N'}</div>
-                            </td>
-                            {panel === PANEL.NONE && <td className="px-6 py-4" />}
-                            <td className="px-6 py-4">
-                              <div className={`text-base font-black tracking-tighter ${item.cantidad_actual <= item.cantidad_minima ? 'text-brand-red' : 'text-slate-300'}`}>
-                                {item.cantidad_actual} <span className="opacity-40">{item.unidad}</span>
-                              </div>
-                            </td>
-                            {panel === PANEL.NONE && (
-                              <td className="px-6 py-4 text-center">
-                                <div className="bg-white/5 py-1 px-2 rounded-lg inline-block border border-white/5 text-[13px] font-black text-slate-400">
-                                  x {item.piezas_por_unidad || 1}
-                                </div>
-                              </td>
-                            )}
-                            {panel === PANEL.NONE && (
-                              <td className="px-6 py-4">
-                                <div className="text-[14px] font-black text-emerald-400/80">${item.precio_unitario?.toLocaleString()}</div>
-                                <div className="text-[11px] font-bold text-slate-500">Unitario: ${unitPrice.toFixed(2)}</div>
-                              </td>
-                            )}
-                            <td className="px-6 py-4 text-right">
-                              <div className="flex justify-end gap-1">
-                                <button onClick={(e) => { e.stopPropagation(); openPanel(item); }}
-                                  className="p-2 hover:bg-emerald-500/10 rounded-lg text-emerald-400/60 hover:text-emerald-400">
-                                  <Edit2 size={13} />
-                                </button>
-                                <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-                                  className="p-2 hover:bg-brand-red/10 rounded-lg text-brand-red/60 hover:text-brand-red">
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
-                            </td>
-                          </motion.tr>
-                        );
-                      })}
-                    </AnimatePresence>
-                  </React.Fragment>
-                ))}
+                      <td className="px-8 py-5 text-base font-black text-emerald-400 text-right">
+                        {compra.cantidad_comprada}
+                      </td>
+                      <td className="px-8 py-5 text-sm font-bold text-slate-300 text-right">
+                        ${fmt(compra.precio_total_compra)}
+                      </td>
+                      <td className="px-8 py-5 text-xs font-black text-slate-500 text-right">
+                        ${fmt(uPrice)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-
-          {/* HISTORIAL DE COMPRAS (Nuevo) */}
-          <div className="mt-8 border-t border-white/5 pt-8 px-6 pb-6">
-            <h3 className="text-xl font-black text-white tracking-tighter mb-4 flex items-center gap-3">
-              <ShoppingCart size={20} className="text-brand-yellow" />
-              Historial de Compras Recientes
-            </h3>
-            <div className="overflow-x-auto rounded-2xl border border-white/5">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-white/[0.02]">
-                  <tr>
-                    <th className="px-4 py-3 text-[11px] font-black tracking-widest text-slate-500">Fecha</th>
-                    <th className="px-4 py-3 text-[11px] font-black tracking-widest text-slate-500">Insumo</th>
-                    <th className="px-4 py-3 text-[11px] font-black tracking-widest text-slate-500">Presentación</th>
-                    <th className="px-4 py-3 text-[11px] font-black tracking-widest text-slate-500 text-right">Cantidad</th>
-                    <th className="px-4 py-3 text-[11px] font-black tracking-widest text-slate-500 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/[0.03]">
-                  {loadingCompras ? (
-                    <tr>
-                      <td colSpan="5" className="px-4 py-8 text-center text-slate-500">Cargando compras...</td>
-                    </tr>
-                  ) : compras.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="px-4 py-8 text-center text-slate-500 italic">No hay compras registradas recientemente</td>
-                    </tr>
-                  ) : compras.map(compra => (
-                    <tr key={compra.id} className="hover:bg-white/[0.01] transition-colors">
-                      <td className="px-4 py-3 text-sm text-slate-400 flex items-center gap-2">
-                        <Calendar size={12} />
-                        {new Date(compra.fecha_compra).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-bold text-slate-200">
-                        {compra.insumos?.marca}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">
-                        {compra.insumos?.presentacion}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-black text-emerald-400 text-right">
-                        {compra.cantidad_comprada}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-bold text-slate-300 text-right">
-                        ${fmt(compra.precio_total_compra)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
+      )}
 
-        {/* PANEL DERECHO */}
-        <AnimatePresence>
-          {panel !== PANEL.NONE && (
-            <motion.div
-              key="inventory-panel"
-              initial={{ opacity: 0, x: 32 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 32 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="w-[420px] shrink-0 sticky top-6"
-            >
-              <div className="glass border-white/5 p-7 relative max-h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar">
-                <button onClick={closePanel} className="absolute right-5 top-5 text-slate-500 hover:text-white transition-colors">
-                  <X size={20} />
-                </button>
+      {/* MODAL AJUSTE RÁPIDO */}
+      <AnimatePresence>
+        {adjustingItem && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass p-8 max-w-sm w-full border-brand-yellow/20">
+              <h3 className="text-xl font-black text-white mb-2">Ajustar Stock</h3>
+              <p className="text-slate-500 text-sm mb-6">{adjustingItem.producto_base} ({adjustingItem.formato})</p>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Cantidad a ajustar</label>
+                  <div className="flex items-center gap-4">
+                    <button onClick={() => setAdjustQty(Math.max(1, adjustQty - 1))} className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xl font-bold">-</button>
+                    <input type="number" className="flex-1 bg-white/10 border-0 rounded-xl h-12 text-center text-2xl font-black text-brand-yellow"
+                      value={adjustQty} onChange={e => setAdjustQty(Number(e.target.value))} />
+                    <button onClick={() => setAdjustQty(adjustQty + 1)} className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xl font-bold">+</button>
+                  </div>
+                </div>
 
-                {panel === PANEL.FORM && (
-                  <>
-                    <h2 className="text-xl font-black text-white tracking-tighter mb-1 flex items-center gap-3">
-                      {editingItem ? <Edit2 size={20} className="text-emerald-400" /> : <Plus size={20} className="text-brand-red" />}
-                      {editingItem ? 'Editar insumo' : 'Nuevo insumo'}
-                    </h2>
-                    <p className="text-slate-500 text-[12px] font-black tracking-[0.2em] mb-6">Stock y costos unitarios</p>
-
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Producto Base</label>
-                          <input required type="text" list="base-product-list" placeholder="Ej: Cerveza Corona"
-                            className="input-field bg-white/5 border-white/10"
-                            value={formData.producto_base} onChange={(e) => handleBaseNameChange(e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Formato</label>
-                          <input required type="text" placeholder="Ej: 355ml"
-                            className="input-field bg-white/5 border-white/10"
-                            value={formData.formato} onChange={(e) => setFormData({...formData, formato: e.target.value})} />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Categoría</label>
-                          <select className="input-field cursor-pointer bg-white/5 border-white/10 font-bold"
-                            value={formData.categoria} onChange={(e) => setFormData({...formData, categoria: e.target.value})}>
-                            {categories.filter(c => c !== 'Todas').map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Unidad</label>
-                          <input placeholder="Pzas, Litros..." className="input-field bg-white/5 border-white/10"
-                            value={formData.unidad} onChange={(e) => setFormData({...formData, unidad: e.target.value})} />
-                        </div>
-                      </div>
-
-                      <div className="p-4 bg-brand-red/5 rounded-2xl border border-brand-red/20 space-y-3">
-                        <h4 className="text-[12px] font-black text-brand-red tracking-widest flex items-center gap-2">
-                          <Calculator size={13} /> Desglose de unidades
-                        </h4>
-                        <div>
-                          <label className="block text-[11px] font-black text-slate-500 mb-2">Precio de la Presentación ($)</label>
-                          <input type="number" step="0.01"
-                            className="input-field bg-white/10 border-brand-red/20 text-emerald-400 font-black"
-                            value={formData.precio_unitario}
-                            onChange={(e) => setFormData({...formData, precio_unitario: Number(e.target.value)})} />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-black text-slate-500 mb-2">¿Cuántas piezas vienen dentro?</label>
-                          <input type="number"
-                            className="input-field bg-white/10 border-brand-red/20 font-black"
-                            value={formData.piezas_por_unidad}
-                            onChange={(e) => setFormData({...formData, piezas_por_unidad: Math.max(1, Number(e.target.value))})} />
-                        </div>
-                        <div className="pt-2 border-t border-brand-red/10 flex justify-between items-center text-[13px] font-bold">
-                          <span className="text-slate-500">Costo Unitario Real:</span>
-                          <span className="text-white">${(formData.precio_unitario / (formData.piezas_por_unidad || 1)).toFixed(2)}</span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Stock Actual</label>
-                          <input type="number"
-                            className="input-field bg-white/5 border-white/10 font-black text-xl"
-                            value={formData.cantidad_actual}
-                            onChange={(e) => setFormData({...formData, cantidad_actual: Number(e.target.value)})} />
-                        </div>
-                        <div>
-                          <label className="block text-[12px] font-black text-slate-500 tracking-widest mb-2">Mínimo Crítico</label>
-                          <input type="number"
-                            className="input-field bg-white/5 border-white/10 font-bold"
-                            value={formData.cantidad_minima}
-                            onChange={(e) => setFormData({...formData, cantidad_minima: Number(e.target.value)})} />
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end gap-3 pt-2 border-t border-white/5">
-                        <button type="button" onClick={closePanel} className="btn-secondary text-sm px-5">Cancelar</button>
-                        <button type="submit" className="btn-primary text-sm px-7">
-                          <Save size={15} />
-                          {editingItem ? 'Actualizar' : 'Crear'}
-                        </button>
-                      </div>
-                    </form>
-                  </>
-                )}
-
-                {panel === PANEL.COMPRA && (
-                  <>
-                    <h2 className="text-xl font-black text-white tracking-tighter mb-1 flex items-center gap-3">
-                      <ShoppingCart size={20} className="text-brand-yellow" />
-                      Registrar Compra
-                    </h2>
-                    <p className="text-slate-500 text-xs font-bold tracking-widest mb-5">
-                      Actualiza el precio promedio al registrar cada compra
-                    </p>
-
-                    <form onSubmit={handleSaveCompra} className="space-y-4">
-
-                      {/* Toggle existente/nuevo */}
-                      <div className="flex gap-2 p-1 bg-white/5 rounded-xl border border-white/5">
-                        <button type="button"
-                          onClick={() => { setShowNewInComp(false); setSelectedInsumo(null); setCompraSearch(''); }}
-                          className={`flex-1 py-2 rounded-lg text-xs font-black tracking-widest transition-all
-                            ${!showNewInComp ? 'bg-brand-teal text-black' : 'text-slate-400 hover:text-slate-200'}`}>
-                          EXISTENTE
-                        </button>
-                        <button type="button"
-                          onClick={() => { setShowNewInComp(true); setSelectedInsumo(null); setCompraSearch(''); setInsumoForm(EMPTY_INSUMO); }}
-                          className={`flex-1 py-2 rounded-lg text-xs font-black tracking-widest transition-all
-                            ${showNewInComp ? 'bg-brand-yellow text-black' : 'text-slate-400 hover:text-slate-200'}`}>
-                          NUEVO
-                        </button>
-                      </div>
-
-                      {/* Insumo existente */}
-                      {!showNewInComp && (
-                        <div className="space-y-2">
-                          <div className="relative">
-                            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                            <input
-                              type="text" placeholder="Buscar por marca, tipo o presentación..."
-                              className="input-field pl-10 text-sm"
-                              value={compraSearch}
-                              onChange={e => { setCompraSearch(e.target.value); setSelectedInsumo(null); }}
-                            />
-                          </div>
-
-                          {searchResults.length > 0 && !selectedInsumo && (
-                            <div className="rounded-xl border border-white/10 overflow-hidden">
-                              {searchResults.map(item => (
-                                <button key={item.id} type="button"
-                                  onClick={() => { setSelectedInsumo(item); setCompraSearch(`${item.marca} — ${item.presentacion}`); }}
-                                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors text-left border-b border-white/5 last:border-0"
-                                >
-                                  <div>
-                                    <p className="text-sm font-bold text-slate-200">{item.marca}</p>
-                                    <p className="text-xs text-slate-500">{item.tipo_insumo} · {item.presentacion}</p>
-                                  </div>
-                                  <span className="text-sm font-black text-emerald-400">${fmt(item.precio_promedio)}</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-
-                          {selectedInsumo && (
-                            <div className="px-4 py-3 rounded-xl bg-brand-teal/5 border border-brand-teal/20 flex justify-between items-center">
-                              <div>
-                                <p className="text-sm font-black text-slate-200">{selectedInsumo.marca}</p>
-                                <p className="text-xs text-slate-500">{selectedInsumo.tipo_insumo} · {selectedInsumo.presentacion}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-xs text-slate-500">Precio actual</p>
-                                <p className="text-sm font-black text-emerald-400">${fmt(selectedInsumo.precio_promedio)}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Insumo nuevo */}
-                      {showNewInComp && (
-                        <div className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                          <p className="text-xs font-black text-brand-yellow tracking-widest">DATOS DEL NUEVO INSUMO</p>
-                          <div>
-                            <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">Tipo</label>
-                            <select required className="input-field text-sm" value={insumoForm.tipo_insumo}
-                              onChange={e => setInsumoForm(p => ({ ...p, tipo_insumo: e.target.value }))}>
-                              {TIPOS.map(t => <option key={t} value={t} className="bg-slate-900">{t}</option>)}
-                            </select>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">Marca</label>
-                              <input required type="text" placeholder="Ej: Bacardi" className="input-field text-sm"
-                                value={insumoForm.marca}
-                                onChange={e => setInsumoForm(p => ({ ...p, marca: e.target.value }))} />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">Presentación</label>
-                              <input required type="text" placeholder="Ej: 750 ml" className="input-field text-sm"
-                                value={insumoForm.presentacion}
-                                onChange={e => setInsumoForm(p => ({ ...p, presentacion: e.target.value }))} />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">ML / GR / Pieza</label>
-                            <input required type="number" step="0.01" min="0.01" placeholder="0" className="input-field text-sm"
-                              value={insumoForm.ml_gr_pieza}
-                              onChange={e => setInsumoForm(p => ({ ...p, ml_gr_pieza: e.target.value }))} />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Datos de la compra */}
-                      {(selectedInsumo || showNewInComp) && (
-                        <div className="space-y-3 p-4 rounded-xl bg-brand-yellow/5 border border-brand-yellow/20">
-                          <p className="text-xs font-black text-brand-yellow tracking-widest">DATOS DE LA COMPRA</p>
-
-                          <div>
-                            <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">Fecha de Compra</label>
-                            <input type="date" required className="input-field text-sm"
-                              value={compraForm.fecha_compra}
-                              onChange={e => setCompraForm(p => ({ ...p, fecha_compra: e.target.value }))} />
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">Cantidad</label>
-                              <input required type="number" step="0.01" min="0.01" placeholder="1" className="input-field text-sm"
-                                value={compraForm.cantidad_comprada}
-                                onChange={e => setCompraForm(p => ({ ...p, cantidad_comprada: e.target.value }))} />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">Total Pagado ($)</label>
-                              <input required type="number" step="0.01" min="0" placeholder="0.00" className="input-field text-sm"
-                                value={compraForm.precio_total_compra}
-                                onChange={e => setCompraForm(p => ({ ...p, precio_total_compra: e.target.value }))} />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex justify-end gap-3 pt-1">
-                        <button type="button" onClick={closePanel} className="btn-secondary text-sm px-5">Cancelar</button>
-                        <button
-                          type="submit"
-                          disabled={savingCompra || (!selectedInsumo && !showNewInComp)}
-                          className="btn-primary text-sm px-7 disabled:opacity-40"
-                        >
-                          <Save size={15} />
-                          {savingCompra ? 'Guardando...' : 'Guardar'}
-                        </button>
-                      </div>
-                    </form>
-                  </>
-                )}
-
-                <datalist id="base-product-list">
-                  {baseProductNames.map(name => <option key={name} value={name} />)}
-                </datalist>
+                <div className="flex gap-3">
+                  <button onClick={() => handleManualAdjust(adjustingItem, 'remove')} className="flex-1 py-4 bg-brand-red/10 border border-brand-red/20 text-brand-red rounded-2xl font-black text-xs tracking-widest hover:bg-brand-red/20 transition-all">SALIDA (-)</button>
+                  <button onClick={() => handleManualAdjust(adjustingItem, 'add')} className="flex-1 py-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl font-black text-xs tracking-widest hover:bg-emerald-500/20 transition-all">ENTRADA (+)</button>
+                </div>
+                
+                <button onClick={() => setAdjustingItem(null)} className="w-full py-3 text-slate-500 font-bold text-sm">Cancelar</button>
               </div>
             </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+          </div>
+        )}
+      </AnimatePresence>
 
-      {/* MODAL CARGA MASIVA (se mantiene flotante por ser utilidad de archivo) */}
       <AnimatePresence>
         {isBulkModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="glass max-w-xl w-full p-10 relative overflow-hidden"
-            >
-              <button onClick={() => setIsBulkModalOpen(false)} className="absolute right-6 top-6 text-slate-500 hover:text-white transition-colors">
-                <X size={28} />
-              </button>
-
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="glass max-w-xl w-full p-10 relative overflow-hidden">
+              <button onClick={() => setIsBulkModalOpen(false)} className="absolute right-6 top-6 text-slate-500 hover:text-white"><X size={28} /></button>
               <div className="mb-8 border-b border-white/5 pb-6">
                 <h2 className="text-[33px] font-black text-white tracking-tighter flex items-center gap-3">
                   <Download size={28} className="text-emerald-400 rotate-180" />
                   Carga masiva CSV
                 </h2>
-                <p className="text-slate-500 text-[13px] font-black tracking-[0.2em] mt-1">Actualización masiva de inventario vía archivo CSV</p>
               </div>
-
               <div className="space-y-6">
-                <div
-                  className="border-2 border-dashed border-white/10 rounded-3xl p-12 flex flex-col items-center justify-center gap-4 hover:border-emerald-500/40 transition-colors bg-white/5 cursor-pointer relative group"
-                  onClick={() => document.getElementById('bulk-file-input').click()}
-                >
-                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-                    <Plus size={32} />
-                  </div>
+                <div className="border-2 border-dashed border-white/10 rounded-3xl p-12 flex flex-col items-center justify-center gap-4 hover:border-emerald-500/40 transition-colors bg-white/5 cursor-pointer relative group"
+                  onClick={() => document.getElementById('bulk-file-input').click()}>
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform"><Plus size={32} /></div>
                   <div className="text-center">
                     <p className="text-white font-black">Seleccionar archivo CSV</p>
                     <p className="text-slate-500 text-[13px] font-bold mt-1">Arrastra tu archivo aquí o haz clic</p>
                   </div>
                   <input id="bulk-file-input" type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
                 </div>
-
-                <div className="bg-slate-900/50 p-6 rounded-2xl border border-white/5">
-                  <h4 className="text-[13px] font-black text-slate-400 tracking-widest mb-4 flex items-center gap-2">
-                    <Info size={14} className="text-brand-red" /> INSTRUCCIONES
-                  </h4>
-                  <ul className="text-[13px] text-slate-500 space-y-2 font-bold leading-relaxed">
-                    <li>• Formato <span className="text-white">.CSV</span></li>
-                    <li>• No cambies los nombres de columnas.</li>
-                    <li>• Si la combinación ya existe, se <span className="text-emerald-400">actualizará</span>.</li>
-                  </ul>
-                </div>
-
-                <button onClick={handleDownloadLayout}
-                  className="w-full flex items-center justify-center gap-2 p-4 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 transition-all font-black text-[15px] border border-white/5">
-                  <Download size={16} /> Descargar Layout de Ejemplo
+                <button onClick={handleDownloadLayout} className="w-full flex items-center justify-center gap-2 p-4 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 transition-all font-black text-[15px] border border-white/5">
+                  <Download size={16} /> Descargar Layout
                 </button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
+      <datalist id="base-product-list">
+        {baseProductNames.map(name => <option key={name} value={name} />)}
+      </datalist>
     </div>
   );
 };

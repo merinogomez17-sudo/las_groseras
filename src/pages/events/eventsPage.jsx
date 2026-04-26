@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { PACKAGE_LIMITS, CATEGORY_LABELS, normalizePkgId, getEventLimits } from '../../utils/eventUtils';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import ShoppingListPDF from '../../components/inventory/ShoppingListPDF';
+import EventShoppingListPDF from '../../components/events/EventShoppingListPDF';
 
 const EventsPage = () => {
   const [events, setEvents]                     = useState([]);
@@ -25,6 +26,19 @@ const EventsPage = () => {
   const [selectedRecipes, setSelectedRecipes]   = useState([]);
   const [availableBeers, setAvailableBeers]     = useState([]);
   const [selectedBeers, setSelectedBeers]       = useState([]);
+
+  const [shoppingListItems, setShoppingListItems] = useState([]);
+  const [isShoppingModalOpen, setIsShoppingModalOpen] = useState(false);
+  const [isCalculatingList, setIsCalculatingList] = useState(false);
+  const [shoppingStep, setShoppingStep]           = useState('ai'); // 'ai' | 'distribute' | 'list'
+  const [eventProductsForDist, setEventProductsForDist] = useState([]);
+  
+  // AI Suggestions
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [isAiLoading, setIsAiLoading]     = useState(false);
+  const [aiError, setAiError]             = useState(null);
+  const [selectedAiOption, setSelectedAiOption] = useState(null);
+  const [hasExistingDist, setHasExistingDist]   = useState(false);
 
   useEffect(() => { fetchEvents(); fetchRecipes(); fetchBeers(); }, []);
 
@@ -118,14 +132,155 @@ const EventsPage = () => {
     }
   };
 
-  const handleFinalizeInventory = async (event) => {
-    if (!window.confirm('¿Finalizar el evento y DESCONTAR automáticamente el inventario?')) return;
-    const loadingToast = toast.loading('Calculando insumos...');
+  const handleGenerateShoppingList = async (event) => {
+    setSelectedEvent(event);
+    setIsShoppingModalOpen(true);
+    setHasExistingDist(false); // Reset por defecto
+    
+    try {
+      const { data: selection } = await supabase
+        .from('evento_productos')
+        .select('id, receta_id, cantidad, recetas_base (nombre, categoria)')
+        .eq('evento_id', event.id);
+
+      const products = selection.map(p => ({
+        id: p.id,
+        receta_id: p.receta_id,
+        nombre: p.recetas_base?.nombre || 'Receta sin nombre',
+        cantidad: p.cantidad || 0
+      }));
+      setEventProductsForDist(products);
+      
+      const alreadyHasDist = products.some(p => p.cantidad > 0);
+      
+      if (alreadyHasDist) {
+        setHasExistingDist(true);
+        setShoppingStep('distribute');
+      } else {
+        setShoppingStep('ai');
+        fetchAiSuggestions(event, selection);
+      }
+    } catch (err) {
+      toast.error('Error al cargar productos');
+    }
+  };
+
+  const fetchAiSuggestions = async (event, currentSelection = []) => {
+    setIsAiLoading(true);
+    setAiError(null);
+    setSelectedAiOption(null);
+
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), 30000);
+
+    try {
+      // Si no nos pasaron la selección, la buscamos (fallback)
+      let recipesForAi = currentSelection;
+      if (recipesForAi.length === 0) {
+        const { data } = await supabase
+          .from('evento_productos')
+          .select('receta_id, recetas_base (nombre, categoria)')
+          .eq('evento_id', event.id);
+        recipesForAi = data || [];
+      }
+
+      const payload = {
+        evento_id: event.id,
+        nombre_evento: event.nombre_evento,
+        tipo_evento: event.tipo_evento || 'fiesta',
+        numero_personas: event.numero_personas,
+        recetas: recipesForAi.map(p => ({
+          receta_id: p.receta_id,
+          nombre: p.recetas_base?.nombre,
+          categoria: p.recetas_base?.categoria
+        }))
+      };
+
+      const response = await fetch(import.meta.env.VITE_N8N_SHOPPING_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+      if (!response.ok) throw new Error('Error en el servidor de sugerencias');
+      
+      const rawRes = await response.json();
+      console.log('N8N Response:', rawRes);
+
+      // Aplanar arrays anidados si existen
+      let data = rawRes;
+      while (Array.isArray(data) && data.length > 0) {
+        data = data[0];
+      }
+      
+      // Si n8n responde con error explícito, ir a manual
+      if (data.success === false) {
+        console.warn('Asistente IA no disponible:', data.error);
+        toast.error('Asistente no disponible. Pasando a modo manual.');
+        setShoppingStep('distribute');
+        return;
+      }
+
+      console.log('Final AI Options:', data.opciones);
+      setAiSuggestions(data.opciones || []);
+    } catch (err) {
+      console.error('AI Error:', err);
+      const isTimeout = err.name === 'AbortError';
+      toast.error(isTimeout ? 'Tiempo de espera agotado.' : 'Error al conectar con el asistente. Puedes distribuir manualmente.');
+      setAiError(isTimeout ? 'Tiempo de espera agotado (30s)' : 'No pudimos conectar con la IA');
+      
+      // Fallback automático a manual para evitar pantalla negra o bloqueo
+      if (currentSelection.length > 0) {
+        setShoppingStep('distribute');
+      }
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  const handleManualDistribution = () => {
+    setShoppingStep('distribute');
+  };
+
+  const handleUseAiSuggestion = (option) => {
+    // Aplicar las cantidades sugeridas a lo que ya tenemos cargado
+    const newDist = eventProductsForDist.map(p => {
+      const suggested = option.distribucion.find(d => d.receta_id === p.receta_id);
+      return {
+        ...p,
+        cantidad: suggested ? suggested.cantidad : 0
+      };
+    });
+
+    setEventProductsForDist(newDist);
+    setShoppingStep('distribute');
+    toast.success(`Distribución "${option.titulo}" aplicada`);
+  };
+
+  const handleMarkAsFinished = async (event) => {
+    if (!window.confirm('¿Marcar este evento como finalizado? El inventario NO se descontará automáticamente.')) return;
+    const loadingToast = toast.loading('Actualizando estado...');
+    try {
+      const { error } = await supabase.from('eventos').update({ estado: 'finalizado' }).eq('id', event.id);
+      if (error) throw error;
+      toast.success('Evento marcado como finalizado', { id: loadingToast });
+      fetchEvents();
+    } catch (err) {
+      toast.error('Error: ' + err.message, { id: loadingToast });
+    }
+  };
+
+  const handleDeductInventory = async (event) => {
+    if (!window.confirm('¿Deseas DESCONTAR el inventario ahora? Esta acción no se puede deshacer.')) return;
+    const loadingToast = toast.loading('Calculando e impactando insumos...');
     try {
       const { data: selection } = await supabase
         .from('evento_productos')
         .select('receta_id, recetas_base (nombre, receta_componentes (insumo_id, cantidad, unidad))')
         .eq('evento_id', event.id);
+
       if (!selection || selection.length === 0) throw new Error('No has seleccionado productos para este evento.');
 
       const totals = {};
@@ -144,27 +299,124 @@ const EventsPage = () => {
         const qty          = totals[insumoId];
         const currentItem  = inventoryData?.find(i => i.id === insumoId);
         const currentStock = currentItem?.cantidad_actual || 0;
+        
         if (qty > currentStock) {
-          deficit.push({ nombre: currentItem?.nombre || 'Insumo desconocido', faltante: qty - currentStock, unidad: currentItem?.unidad || 'Pzas', proveedor: currentItem?.proveedor || 'No definido' });
+          deficit.push({ 
+            nombre: currentItem?.nombre || 'Insumo desconocido', 
+            faltante: qty - currentStock, 
+            unidad: currentItem?.unidad || 'Pzas', 
+            proveedor: currentItem?.proveedor || 'No definido' 
+          });
         }
-        await supabase.from('movimientos_inventario').insert({ id_insumo: insumoId, tipo: 'salida', cantidad: qty, motivo: `Consumo Evento: ${event.nombre_evento}` });
-        await supabase.from('inventario').update({ cantidad_actual: currentStock - qty }).eq('id', insumoId);
-      }
 
-      await supabase.from('eventos').update({ estado: 'finalizado' }).eq('id', event.id);
+        // Registrar movimiento y actualizar stock
+        await supabase.from('movimientos_inventario').insert({ 
+          id_insumo: insumoId, 
+          tipo: 'salida', 
+          cantidad: qty, 
+          motivo: `Consumo Evento: ${event.nombre_evento}` 
+        });
+        await supabase.from('inventario').update({ 
+          cantidad_actual: currentStock - qty 
+        }).eq('id', insumoId);
+      }
 
       if (deficit.length > 0) {
         setDeficitItems(deficit);
         setIsDeficitModalOpen(true);
-        toast.warning('¡Inventario actualizado! Se detectaron faltantes.');
+        toast.warning('¡Inventario descontado! Se detectaron faltantes.', { id: loadingToast });
       } else {
-        toast.success('¡Inventario actualizado y evento finalizado!', { id: loadingToast });
+        toast.success('¡Inventario descontado correctamente!', { id: loadingToast });
       }
-
-      setSelectedEvent(event);
+      
       fetchEvents();
     } catch (err) {
-      toast.error('Error al procesar: ' + err.message, { id: loadingToast });
+      toast.error('Error al descontar: ' + err.message, { id: loadingToast });
+    }
+  };
+
+
+
+  const handleSaveDistAndCalculate = async () => {
+    setIsCalculatingList(true);
+    const loadingToast = toast.loading('Guardando y calculando insumos...');
+    try {
+      // 1. Guardar cantidades en Supabase
+      for (const item of eventProductsForDist) {
+        await supabase
+          .from('evento_productos')
+          .update({ cantidad: item.cantidad })
+          .eq('id', item.id);
+      }
+
+      // 2. Fetch data completa para el cálculo
+      const { data: selection } = await supabase
+        .from('evento_productos')
+        .select(`
+          cantidad,
+          recetas_base (
+            nombre, 
+            receta_componentes (
+              insumo_id, 
+              insumo_nombre_manual, 
+              cantidad, 
+              unidad
+            )
+          )
+        `)
+        .eq('evento_id', selectedEvent.id);
+
+      // 3. Fetch inventario e insumos
+      const { data: inventoryData } = await supabase.from('inventario').select('*');
+      const { data: insumosData } = await supabase.from('insumos').select('*');
+
+      const totals = {};
+      selection.forEach(p => {
+        const recipePortions = p.cantidad || 0;
+        p.recetas_base.receta_componentes.forEach(comp => {
+          const isGeneric = !comp.insumo_id;
+          const key = isGeneric ? `gen_${comp.insumo_nombre_manual}` : comp.insumo_id;
+
+          if (!totals[key]) {
+            if (isGeneric) {
+              totals[key] = {
+                nombre: comp.insumo_nombre_manual,
+                necesitas: 0,
+                en_inventario: 0,
+                a_comprar: 0,
+                unidad: comp.unidad || 'Pzas',
+                is_generic: true
+              };
+            } else {
+              const insumo = insumosData?.find(i => i.id === comp.insumo_id);
+              const inv = inventoryData?.find(i => i.id === comp.insumo_id);
+
+              totals[key] = {
+                nombre: insumo?.marca || 'Desconocido',
+                necesitas: 0,
+                en_inventario: inv?.cantidad_actual || 0,
+                unidad: insumo?.presentacion || inv?.unidad || comp.unidad || 'Pzas',
+                proveedor: inv?.proveedor || 'N/A',
+                is_generic: false
+              };
+            }
+          }
+          totals[key].necesitas += comp.cantidad * recipePortions;
+        });
+      });
+
+      const finalItems = Object.values(totals).map(item => ({
+        ...item,
+        a_comprar: item.is_generic ? 0 : Math.max(0, item.necesitas - item.en_inventario)
+      }));
+
+      setShoppingListItems(finalItems);
+      setShoppingStep('list');
+      toast.success('Lista calculada con éxito', { id: loadingToast });
+    } catch (err) {
+      toast.error('Error: ' + err.message, { id: loadingToast });
+    } finally {
+      setIsCalculatingList(false);
     }
   };
 
@@ -290,23 +542,35 @@ const EventsPage = () => {
                 </div>
 
                 <div className="lg:w-56 flex flex-col justify-center gap-3">
-                  {event.estado !== 'finalizado' && (
+                  {event.estado !== 'finalizado' ? (
                     <>
                       <button onClick={() => openPanel(event)}
                         className={`btn-secondary w-full py-3 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 ${selectedEvent?.id === event.id && panelOpen ? 'ring-1 ring-brand-red/50' : ''}`}>
                         <Beer size={14} /> Seleccionar Bebidas
                       </button>
-                      <button onClick={() => handleFinalizeInventory(event)}
+                      <button onClick={() => handleGenerateShoppingList(event)}
+                        className="btn-secondary w-full py-3 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10">
+                        <ShoppingBag size={14} /> Lista de compras
+                      </button>
+                      <button onClick={() => handleMarkAsFinished(event)}
                         className="btn-primary w-full py-3 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-brand-red/20">
-                        <Play size={14} /> Finalizar y Descontar
+                        <CheckCircle size={14} /> Finalizar Evento
                       </button>
                     </>
-                  )}
-                  {event.estado === 'finalizado' && (
-                    <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/20 text-center">
-                      <CheckCircle size={28} className="mx-auto text-emerald-400 mb-1" />
-                      <p className="text-[10px] font-black text-emerald-400 tracking-widest">Stock Actualizado</p>
-                    </div>
+                  ) : (
+                    <>
+                      <button onClick={() => handleGenerateShoppingList(event)}
+                        className="btn-secondary w-full py-3 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10">
+                        <ShoppingBag size={14} /> Lista de compras
+                      </button>
+                      <button onClick={() => handleDeductInventory(event)}
+                        className="btn-primary w-full py-3 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 bg-emerald-600 border-emerald-500 hover:bg-emerald-500 shadow-xl shadow-emerald-500/20">
+                        <Play size={14} /> Descontar Inventario
+                      </button>
+                      <div className="p-3 bg-white/5 rounded-xl border border-white/5 text-center">
+                        <p className="text-[9px] font-black text-slate-500 tracking-widest">EVENTO FINALIZADO</p>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -409,14 +673,22 @@ const EventsPage = () => {
                   })}
                 </div>
 
-                <div className="mt-5 pt-4 border-t border-white/5 flex justify-between items-center">
-                  <div className="text-[10px] font-black text-slate-500 tracking-widest">{selectedRecipes.length} productos sel.</div>
-                  <div className="flex gap-3">
-                    <button onClick={closePanel} className="btn-secondary text-xs px-5">Cancelar</button>
-                    <button onClick={handleSaveSelection} className="btn-primary text-xs px-7 flex items-center gap-2">
-                      <Save size={14} /> Guardar
-                    </button>
+                <div className="mt-5 pt-4 border-t border-white/5 flex flex-col gap-3">
+                  <div className="flex justify-between items-center">
+                    <div className="text-[10px] font-black text-slate-500 tracking-widest">{selectedRecipes.length} productos sel.</div>
+                    <div className="flex gap-3">
+                      <button onClick={closePanel} className="btn-secondary text-xs px-5">Cancelar</button>
+                      <button onClick={handleSaveSelection} className="btn-primary text-xs px-7 flex items-center gap-2">
+                        <Save size={14} /> Guardar
+                      </button>
+                    </div>
                   </div>
+                  <button 
+                    onClick={() => handleGenerateShoppingList(selectedEvent)}
+                    className="w-full py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-500/20 transition-all"
+                  >
+                    <ShoppingBag size={14} /> Generar Lista de Compras
+                  </button>
                 </div>
               </div>
             </motion.div>
@@ -462,6 +734,240 @@ const EventsPage = () => {
                 <button onClick={() => setIsDeficitModalOpen(false)} className="text-[10px] font-black text-slate-500 tracking-widest hover:text-white transition-colors">
                   Cerrar
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL LISTA DE COMPRAS (MANUAL) */}
+      <AnimatePresence>
+        {isShoppingModalOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="glass max-w-4xl w-full p-8 relative flex flex-col max-h-[90vh]"
+            >
+              <button onClick={() => setIsShoppingModalOpen(false)} className="absolute right-6 top-6 text-slate-500 hover:text-white transition-colors">
+                <X size={24} />
+              </button>
+
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-brand-red/20 rounded-xl flex items-center justify-center">
+                    <ShoppingBag size={24} className="text-brand-red" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-white tracking-tighter">
+                      {shoppingStep === 'distribute' ? 'Distribuir porciones' : 'Lista de preparación'}
+                    </h2>
+                    <p className="text-slate-500 text-[10px] font-black tracking-widest">{selectedEvent?.nombre_evento} • {selectedEvent?.numero_personas} PAX</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                {shoppingStep === 'ai' ? (
+                  <div className="space-y-6">
+                    {isAiLoading ? (
+                      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                        <div className="w-12 h-12 border-4 border-brand-red border-t-transparent rounded-full animate-spin" />
+                        <p className="text-slate-400 font-bold animate-pulse">Consultando al experto en micheladas...</p>
+                      </div>
+                    ) : aiError ? (
+                      <div className="p-8 bg-brand-red/5 border border-brand-red/20 rounded-3xl text-center">
+                        <TrendingUp size={40} className="mx-auto text-brand-red mb-4 opacity-50" />
+                        <h3 className="text-xl font-black text-white mb-2">{aiError}</h3>
+                        <p className="text-slate-400 text-sm mb-6">No pudimos obtener las sugerencias automáticas en este momento.</p>
+                        <button onClick={handleManualDistribution} className="btn-primary px-8 py-3 w-full">
+                          Continuar manualmente
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid gap-4">
+                        <p className="text-xs font-black text-slate-500 tracking-widest uppercase mb-2">Sugerencias de Distribución (IA)</p>
+                        {Array.isArray(aiSuggestions) && aiSuggestions.length > 0 ? (
+                          aiSuggestions.map((opt, idx) => (
+                            <motion.div
+                              key={idx}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => setSelectedAiOption(idx)}
+                              className={`p-5 rounded-3xl border-2 transition-all cursor-pointer relative overflow-hidden group
+                                ${selectedAiOption === idx ? 'bg-brand-red/10 border-brand-red shadow-lg shadow-brand-red/20' : 'bg-white/5 border-white/5 hover:border-white/10'}`}
+                            >
+                              <div className="flex justify-between items-start mb-3 relative z-10">
+                                <div>
+                                  <h4 className={`text-lg font-black tracking-tighter ${selectedAiOption === idx ? 'text-brand-red' : 'text-white'}`}>{opt.titulo}</h4>
+                                  <p className="text-xs text-slate-500 font-bold">{opt.descripcion}</p>
+                                </div>
+                                {selectedAiOption === idx && <CheckCircle size={20} className="text-brand-red" />}
+                              </div>
+                              <div className="flex flex-wrap gap-2 relative z-10">
+                                {Array.isArray(opt.distribucion) && opt.distribucion.map((d, i) => (
+                                  <span key={i} className="text-[10px] font-black px-2 py-1 rounded-lg bg-white/5 text-slate-400 border border-white/5">
+                                    {d.nombre}: {d.cantidad}
+                                  </span>
+                                ))}
+                              </div>
+                            </motion.div>
+                          ))
+                        ) : (
+                          <div className="p-10 text-center bg-white/5 rounded-3xl border border-white/5">
+                            <p className="text-slate-500 font-bold">La IA no devolvió opciones válidas.</p>
+                          </div>
+                        )}
+                        <div className="flex flex-col gap-3 mt-4">
+                          <button
+                            disabled={selectedAiOption === null}
+                            onClick={() => handleUseAiSuggestion(aiSuggestions[selectedAiOption])}
+                            className="btn-primary py-4 text-sm font-black shadow-xl shadow-brand-red/20 disabled:opacity-50 disabled:grayscale"
+                          >
+                            Usar esta distribución
+                          </button>
+                          <button onClick={handleManualDistribution} className="text-[11px] font-black text-slate-500 hover:text-white transition-colors tracking-widest uppercase py-2">
+                            Omitir y distribuir manualmente
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : shoppingStep === 'distribute' ? (
+                  <div className="space-y-6">
+                    {hasExistingDist && (
+                      <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3">
+                        <CheckCircle size={20} className="text-emerald-400 shrink-0" />
+                        <p className="text-emerald-400 text-xs font-black uppercase tracking-tight">Distribución guardada — puedes modificarla</p>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-center px-1">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-slate-500 tracking-widest uppercase">Total asignado</span>
+                        <div className="flex items-baseline gap-1 mt-1">
+                          <span className={`text-2xl font-black ${eventProductsForDist.reduce((acc, curr) => acc + Number(curr.cantidad), 0) > selectedEvent?.numero_personas ? 'text-brand-red' : 'text-emerald-400'}`}>
+                            {eventProductsForDist.reduce((acc, curr) => acc + Number(curr.cantidad), 0)}
+                          </span>
+                          <span className="text-slate-500 font-bold text-xs uppercase">/ {selectedEvent?.numero_personas} PAX</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setShoppingStep('ai');
+                          setHasExistingDist(false);
+                          fetchAiSuggestions(selectedEvent, eventProductsForDist);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-brand-red/10 border border-white/5 hover:border-brand-red/20 rounded-xl text-[10px] font-black text-slate-400 hover:text-brand-red transition-all tracking-widest uppercase"
+                      >
+                        <RefreshCw size={14} className="shrink-0" />
+                        Pedir nuevas sugerencias IA
+                      </button>
+                    </div>
+
+                    <div className="grid gap-3">
+                      {eventProductsForDist.map((item, idx) => (
+                        <div key={item.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex items-center justify-between group hover:border-brand-red/30 transition-all">
+                          <span className="font-bold text-slate-200">{item.nombre}</span>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="number"
+                              className="w-24 bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-center font-black text-white focus:border-brand-red transition-all"
+                              value={item.cantidad}
+                              onChange={(e) => {
+                                const newDist = [...eventProductsForDist];
+                                newDist[idx].cantidad = Math.max(0, Number(e.target.value));
+                                setEventProductsForDist(newDist);
+                              }}
+                            />
+                            <span className="text-[10px] font-black text-slate-500 tracking-widest uppercase">PORCIONES</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Con stock */}
+                    <div>
+                      <h3 className="text-xs font-black text-brand-red tracking-widest mb-4 flex items-center gap-2">
+                        <Package size={14} /> INSUMOS CON STOCK REGISTRADO
+                      </h3>
+                      <div className="bg-white/5 rounded-2xl border border-white/5 overflow-hidden">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="bg-white/5 border-b border-white/10">
+                              <th className="p-4 font-black text-slate-500 tracking-widest uppercase">Insumo</th>
+                              <th className="p-4 font-black text-slate-500 tracking-widest uppercase text-center">Necesitas</th>
+                              <th className="p-4 font-black text-slate-500 tracking-widest uppercase text-center">En Inventario</th>
+                              <th className="p-4 font-black text-slate-500 tracking-widest uppercase text-center text-brand-red">A Comprar</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {shoppingListItems.filter(i => !i.is_generic).map((item, idx) => (
+                              <tr key={idx} className="hover:bg-white/5 transition-colors">
+                                <td className="p-4 font-bold text-white">{item.nombre}</td>
+                                <td className="p-4 font-black text-center text-slate-400">{item.necesitas.toFixed(1)} {item.unidad}</td>
+                                <td className="p-4 font-black text-center text-slate-400">{item.en_inventario.toFixed(1)} {item.unidad}</td>
+                                <td className={`p-4 font-black text-center ${item.a_comprar > 0 ? 'text-brand-red bg-brand-red/5' : 'text-emerald-400'}`}>
+                                  {item.a_comprar > 0 ? item.a_comprar.toFixed(1) : 'OK'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Sin stock / Genéricos */}
+                    {shoppingListItems.some(i => i.is_generic) && (
+                      <div>
+                        <h3 className="text-xs font-black text-emerald-400 tracking-widest mb-4 flex items-center gap-2">
+                          <Search size={14} /> INSUMOS SIN STOCK (GENÉRICOS)
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {shoppingListItems.filter(i => i.is_generic).map((item, idx) => (
+                            <div key={idx} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center">
+                              <span className="font-bold text-white">{item.nombre}</span>
+                              <span className="font-black text-emerald-400">{item.necesitas.toFixed(1)} {item.unidad}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-white/10 flex justify-between items-center">
+                <p className="text-[10px] font-black text-slate-500 tracking-widest italic">
+                  {shoppingStep === 'distribute' ? '* Define cuántas porciones prepararás de cada bebida.' : '* Basado en porciones asignadas y stock actual.'}
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setIsShoppingModalOpen(false)} className="btn-secondary px-6">Cerrar</button>
+                  {shoppingStep === 'distribute' ? (
+                    <button onClick={handleSaveDistAndCalculate} className="btn-primary px-8 flex items-center gap-2">
+                      <Save size={16} />
+                      <span className="font-black">Guardar y ver lista</span>
+                    </button>
+                  ) : (
+                    <>
+                      <button onClick={() => setShoppingStep('distribute')} className="btn-secondary px-6">Reajustar</button>
+                      <PDFDownloadLink
+                        document={<EventShoppingListPDF event={selectedEvent} items={shoppingListItems} recipes={eventProductsForDist} />}
+                        fileName={`Lista_Compras_${selectedEvent?.nombre_evento.replace(/\s+/g, '_')}.pdf`}
+                        className="btn-primary px-8 flex items-center gap-2"
+                      >
+                        {({ loading }) => (
+                          <>
+                            <Save size={16} />
+                            <span className="font-black">{loading ? 'Generando...' : 'Descargar PDF'}</span>
+                          </>
+                        )}
+                      </PDFDownloadLink>
+                    </>
+                  )}
+                </div>
               </div>
             </motion.div>
           </div>

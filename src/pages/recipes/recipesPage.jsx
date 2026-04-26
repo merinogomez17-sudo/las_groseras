@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   BookOpen, Search, Plus, Filter,
   Trash2, Edit2, X, Save, RefreshCw,
@@ -67,6 +67,20 @@ const categories = ['Basica', 'Cerveza con sabor', 'Bebida especial', 'Cerveza e
 // Qué panel está abierto
 const PANEL = { NONE: null, DETAIL: 'detail', EDITOR: 'editor' };
 
+const calcComponentCost = (comp, inventory, genericOptions) => {
+  const qty = parseFloat(comp.cantidad) || 0;
+  if (comp.is_generic) {
+    const gen = genericOptions.find(g => g.value === (comp.tipo_insumo || comp.insumo_nombre_manual));
+    return gen ? (gen.avgPrice * qty) : 0;
+  } else {
+    const insumo = inventory.find(i => i.id === comp.insumo_id);
+    if (!insumo) return 0;
+    return insumo.precio_x_ml 
+      ? (insumo.precio_x_ml * qty) 
+      : ((insumo.precio_promedio / (insumo.ml_gr_pieza || 1)) * qty);
+  }
+};
+
 const RecipesPage = () => {
   const [recipes, setRecipes]           = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -87,6 +101,42 @@ const RecipesPage = () => {
     setInventory(data || []);
   };
 
+  const genericOptions = useMemo(() => {
+    const types = {};
+    inventory.forEach(item => {
+      if (!item.tipo_insumo) return;
+      if (!types[item.tipo_insumo]) {
+        types[item.tipo_insumo] = { total: 0, count: 0 };
+      }
+      const pricePerUnit = item.precio_x_ml || (item.precio_promedio / (item.ml_gr_pieza || 1)) || 0;
+      if (pricePerUnit > 0) {
+        types[item.tipo_insumo].total += pricePerUnit;
+        types[item.tipo_insumo].count += 1;
+      }
+    });
+    return Object.keys(types).sort().map(type => ({
+      label: type,
+      value: type,
+      avgPrice: types[type].total / types[type].count
+    }));
+  }, [inventory]);
+
+  const recipesWithCosts = useMemo(() => {
+    return recipes.map(recipe => {
+      const total = recipe.receta_componentes?.reduce((acc, c) => {
+        const isGeneric = !c.insumo_id && !!c.insumo_nombre_manual;
+        const normalizedComp = {
+          is_generic: isGeneric,
+          insumo_id: c.insumo_id,
+          tipo_insumo: isGeneric ? c.insumo_nombre_manual : '',
+          cantidad: c.cantidad
+        };
+        return acc + calcComponentCost(normalizedComp, inventory, genericOptions);
+      }, 0) || 0;
+      return { ...recipe, dynamic_cost: total };
+    });
+  }, [recipes, inventory, genericOptions]);
+
   const fetchRecipes = async () => {
     setLoading(true);
     try {
@@ -103,7 +153,7 @@ const RecipesPage = () => {
     }
   };
 
-  const filteredRecipes = recipes.filter(r => {
+  const filteredRecipes = recipesWithCosts.filter(r => {
     const matchesSearch   = r.nombre.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = categoryFilter === 'Todas' || r.categoria === categoryFilter;
     return matchesSearch && matchesCategory;
@@ -131,9 +181,17 @@ const RecipesPage = () => {
     if (recipe) {
       setEditorData({
         id: recipe.id, nombre: recipe.nombre, categoria: recipe.categoria,
-        componentes: recipe.receta_componentes?.map(c => ({
-          id: c.id, insumo_id: c.insumo_id, cantidad: c.cantidad, unidad: c.unidad
-        })) || []
+        componentes: recipe.receta_componentes?.map(c => {
+          const isGeneric = !c.insumo_id && !!c.insumo_nombre_manual;
+          return {
+            id: c.id, 
+            insumo_id: c.insumo_id || '', 
+            tipo_insumo: isGeneric ? c.insumo_nombre_manual : '',
+            is_generic: isGeneric,
+            cantidad: c.cantidad, 
+            unidad: c.unidad
+          };
+        }) || []
       });
     } else {
       setEditorData({ id: null, nombre: '', categoria: 'Cerveza con sabor', componentes: [] });
@@ -144,7 +202,16 @@ const RecipesPage = () => {
   const closePanel = () => setPanel(PANEL.NONE);
 
   const handleAddComponent = () => {
-    setEditorData(prev => ({ ...prev, componentes: [...prev.componentes, { insumo_id: '', cantidad: '', unidad: '' }] }));
+    setEditorData(prev => ({ 
+      ...prev, 
+      componentes: [...prev.componentes, { 
+        insumo_id: '', 
+        tipo_insumo: '', 
+        is_generic: false, 
+        cantidad: '', 
+        unidad: 'Ml/Gr/Pza' 
+      }] 
+    }));
   };
 
   const handleRemoveComponent = (idx) => {
@@ -154,10 +221,20 @@ const RecipesPage = () => {
   const handleUpdateComponent = (idx, field, value) => {
     const newComps = [...editorData.componentes];
     newComps[idx][field] = value;
-    if (field === 'insumo_id') {
+    
+    if (field === 'insumo_id' && !newComps[idx].is_generic) {
       const insumo = inventory.find(i => i.id === value);
       if (insumo) newComps[idx].unidad = 'Ml/Gr/Pza';
     }
+
+    if (field === 'is_generic') {
+      if (value) {
+        newComps[idx].insumo_id = '';
+      } else {
+        newComps[idx].tipo_insumo = '';
+      }
+    }
+
     setEditorData({ ...editorData, componentes: newComps });
   };
 
@@ -168,16 +245,18 @@ const RecipesPage = () => {
     try {
       let costoTotal = 0;
       const componentsToSave = editorData.componentes.map(comp => {
-        const insumo = inventory.find(i => i.id === comp.insumo_id);
-        const qty    = parseFloat(comp.cantidad) || 0;
-        let costo    = 0;
-        if (insumo) costo = insumo.precio_x_ml ? (insumo.precio_x_ml * qty) : ((insumo.precio_promedio / insumo.ml_gr_pieza) * qty);
-        if (isNaN(costo)) costo = 0;
-        costoTotal += costo;
-        return { ...comp, costo_proporcional: costo };
+        const costo = calcComponentCost(comp, inventory, genericOptions);
+        const insumoNombreManual = comp.is_generic ? comp.tipo_insumo : null;
+
+        return { 
+          ...comp, 
+          costo_proporcional: costo,
+          insumo_id: comp.is_generic ? null : comp.insumo_id,
+          insumo_nombre_manual: insumoNombreManual
+        };
       });
 
-      const recipePayload = { nombre: editorData.nombre, categoria: editorData.categoria, costo_total: costoTotal };
+      const recipePayload = { nombre: editorData.nombre, categoria: editorData.categoria };
       let recipeId = editorData.id;
       if (recipeId) {
         await supabase.from('recetas_base').update(recipePayload).eq('id', recipeId);
@@ -190,8 +269,12 @@ const RecipesPage = () => {
       if (editorData.id) await supabase.from('receta_componentes').delete().eq('receta_id', recipeId);
 
       const finalComponents = componentsToSave.map(c => ({
-        receta_id: recipeId, insumo_id: c.insumo_id, cantidad: c.cantidad,
-        unidad: c.unidad, costo_proporcional: c.costo_proporcional
+        receta_id: recipeId, 
+        insumo_id: c.insumo_id, 
+        insumo_nombre_manual: c.insumo_nombre_manual,
+        cantidad: c.cantidad,
+        unidad: c.unidad, 
+        costo_proporcional: c.costo_proporcional
       }));
 
       const { error: compError } = await supabase.from('receta_componentes').insert(finalComponents);
@@ -206,12 +289,7 @@ const RecipesPage = () => {
   };
 
   const totalCost = editorData.componentes.reduce((acc, comp) => {
-    const insumo = inventory.find(i => i.id === comp.insumo_id);
-    const qty    = parseFloat(comp.cantidad) || 0;
-    let cost     = 0;
-    if (insumo) cost = insumo.precio_x_ml ? (insumo.precio_x_ml * qty) : ((insumo.precio_promedio / insumo.ml_gr_pieza) * qty);
-    if (isNaN(cost)) cost = 0;
-    return acc + cost;
+    return acc + calcComponentCost(comp, inventory, genericOptions);
   }, 0);
 
   const panelOpen = panel !== PANEL.NONE;
@@ -293,7 +371,7 @@ const RecipesPage = () => {
                 <div className="mt-3 p-3 bg-white/5 rounded-xl border border-white/5">
                   <div className="flex justify-between items-center">
                     <span className="text-[10px] font-black text-slate-500 tracking-widest">COSTO</span>
-                    <span className="text-lg font-black text-emerald-400">${recipe.costo_total?.toFixed(2)}</span>
+                    <span className="text-lg font-black text-emerald-400">${recipe.dynamic_cost?.toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -343,30 +421,41 @@ const RecipesPage = () => {
                     </div>
 
                     <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
-                      {selectedRecipe.receta_componentes?.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-brand-red font-black text-sm">
-                              {idx + 1}
-                            </div>
-                            <div>
-                              <div className="font-black text-sm text-white">
-                                {item.insumo_nombre_manual || (item.insumos ? `${item.insumos.marca} (${item.insumos.presentacion})` : 'Insumo')}
+                          {selectedRecipe.receta_componentes?.map((item, idx) => {
+                            const isGeneric = !item.insumo_id && !!item.insumo_nombre_manual;
+                            const normalizedComp = {
+                              is_generic: isGeneric,
+                              insumo_id: item.insumo_id,
+                              insumo_nombre_manual: item.insumo_nombre_manual,
+                              cantidad: item.cantidad
+                            };
+                            const itemCost = calcComponentCost(normalizedComp, inventory, genericOptions);
+
+                            return (
+                              <div key={idx} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-brand-red font-black text-sm">
+                                    {idx + 1}
+                                  </div>
+                                  <div>
+                                    <div className="font-black text-sm text-white">
+                                      {item.insumo_nombre_manual || (item.insumos ? `${item.insumos.marca} (${item.insumos.presentacion})` : 'Insumo')}
+                                    </div>
+                                    <div className="text-xs text-slate-500 font-bold">{item.cantidad} {item.unidad}</div>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-sm font-black text-emerald-400">${itemCost.toFixed(2)}</div>
+                                </div>
                               </div>
-                              <div className="text-xs text-slate-500 font-bold">{item.cantidad} {item.unidad}</div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm font-black text-emerald-400">${item.costo_proporcional?.toFixed(2)}</div>
-                          </div>
-                        </div>
-                      ))}
+                            );
+                          })}
                     </div>
 
                     <div className="mt-5 pt-4 border-t border-white/10 flex justify-between items-center">
                       <div>
                         <p className="text-xs font-black text-slate-500 tracking-widest">Total</p>
-                        <p className="text-2xl font-black text-white tracking-tighter">${selectedRecipe.costo_total?.toFixed(2)}</p>
+                        <p className="text-2xl font-black text-white tracking-tighter">${recipesWithCosts.find(r => r.id === selectedRecipe.id)?.dynamic_cost?.toFixed(2)}</p>
                       </div>
                       <div className="flex gap-3">
                         <button onClick={closePanel} className="btn-secondary text-sm px-5">Cerrar</button>
@@ -422,35 +511,58 @@ const RecipesPage = () => {
 
                         <div className="space-y-2">
                           {editorData.componentes.map((comp, idx) => {
-                            const insumo = inventory.find(i => i.id === comp.insumo_id);
-                            const qty    = parseFloat(comp.cantidad) || 0;
-                            let cost     = 0;
-                            if (insumo) cost = insumo.precio_x_ml ? (insumo.precio_x_ml * qty) : ((insumo.precio_promedio / insumo.ml_gr_pieza) * qty);
-                            if (isNaN(cost)) cost = 0;
+                            const cost = calcComponentCost(comp, inventory, genericOptions);
+
                             const inventoryOptions = inventory.map(i => ({
                               value: i.id,
                               label: `${i.marca} (${i.presentacion}) — $${i.precio_promedio}`
                             }));
 
                             return (
-                              <div key={idx} className="flex gap-2 p-3 bg-white/5 rounded-xl border border-white/5 group relative">
-                                <div className="flex-1">
-                                  <SearchableSelect
-                                    options={inventoryOptions}
-                                    value={comp.insumo_id}
-                                    onChange={(val) => handleUpdateComponent(idx, 'insumo_id', val)}
-                                    placeholder="Buscar insumo..."
-                                  />
+                              <div key={idx} className="flex flex-col gap-2 p-3 bg-white/5 rounded-xl border border-white/5 group relative">
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="flex items-center gap-2">
+                                    <button 
+                                      onClick={() => handleUpdateComponent(idx, 'is_generic', !comp.is_generic)}
+                                      className={`px-2 py-0.5 rounded text-[9px] font-black tracking-widest transition-all ${comp.is_generic ? 'bg-brand-red text-white' : 'bg-slate-800 text-slate-500'}`}
+                                    >
+                                      {comp.is_generic ? 'GENÉRICO' : 'ESPECÍFICO'}
+                                    </button>
+                                    <span className="text-[10px] font-bold text-slate-500">
+                                      {comp.is_generic ? 'Promedio por categoría' : 'Marca exacta'}
+                                    </span>
+                                  </div>
                                 </div>
-                                <div className="w-20">
-                                  <input type="number" placeholder="Cant." className="w-full bg-slate-900 border-none rounded-xl p-3 text-xs font-black text-center text-white"
-                                    value={comp.cantidad} onChange={(e) => handleUpdateComponent(idx, 'cantidad', e.target.value)} />
+
+                                <div className="flex gap-2">
+                                  <div className="flex-1">
+                                    {comp.is_generic ? (
+                                      <SearchableSelect
+                                        options={genericOptions}
+                                        value={comp.tipo_insumo}
+                                        onChange={(val) => handleUpdateComponent(idx, 'tipo_insumo', val)}
+                                        placeholder="Categoría (ej: Cerveza)..."
+                                      />
+                                    ) : (
+                                      <SearchableSelect
+                                        options={inventoryOptions}
+                                        value={comp.insumo_id}
+                                        onChange={(val) => handleUpdateComponent(idx, 'insumo_id', val)}
+                                        placeholder="Buscar insumo..."
+                                      />
+                                    )}
+                                  </div>
+                                  <div className="w-20">
+                                    <input type="number" placeholder="Cant." className="w-full bg-slate-900 border-none rounded-xl p-3 text-xs font-black text-center text-white"
+                                      value={comp.cantidad} onChange={(e) => handleUpdateComponent(idx, 'cantidad', e.target.value)} />
+                                  </div>
+                                  <div className="w-20 flex items-center justify-center">
+                                    <div className="text-sm font-black text-emerald-400">${cost.toFixed(2)}</div>
+                                  </div>
                                 </div>
-                                <div className="w-20 flex items-center justify-center">
-                                  <div className="text-sm font-black text-emerald-400">${cost.toFixed(2)}</div>
-                                </div>
+
                                 <button onClick={() => handleRemoveComponent(idx)}
-                                  className="absolute -right-2 -top-2 w-5 h-5 bg-slate-800 text-slate-500 hover:text-brand-red rounded-full flex items-center justify-center border border-white/10 opacity-0 group-hover:opacity-100 transition-all">
+                                  className="absolute -right-2 -top-2 w-5 h-5 bg-slate-800 text-slate-500 hover:text-brand-red rounded-full flex items-center justify-center border border-white/10 opacity-0 group-hover:opacity-100 transition-all z-10">
                                   <X size={10} />
                                 </button>
                               </div>
