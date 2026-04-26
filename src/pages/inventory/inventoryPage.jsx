@@ -906,8 +906,8 @@ const InventoryPage = () => {
 
             <form onSubmit={handleSaveCompra} className="space-y-6">
               {/* Buscador de insumo */}
-              <div className="space-y-3">
-                <label className="block text-xs font-black text-slate-500 tracking-widest uppercase">Producto</label>
+              <div>
+                <label className="block text-xs font-black text-slate-500 tracking-widest uppercase mb-3">Producto</label>
                 {selectedInsumo ? (
                   <div className="p-5 rounded-2xl bg-brand-teal/5 border border-brand-teal/20 flex justify-between items-center shadow-xl shadow-brand-teal/5">
                     <div>
@@ -927,7 +927,7 @@ const InventoryPage = () => {
                   </div>
                 ) : (
                   <div className="relative">
-                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 z-10" />
                     <input
                       autoFocus
                       type="text" placeholder="Buscar por marca, tipo o presentación..."
@@ -935,29 +935,31 @@ const InventoryPage = () => {
                       value={compraSearch}
                       onChange={e => setCompraSearch(e.target.value)}
                     />
-                  </div>
-                )}
-
-                {!selectedInsumo && compraSearch.length >= 2 && (
-                  <div className="rounded-2xl border border-white/10 overflow-hidden bg-slate-900/50 shadow-2xl">
-                    {searchResults.map(item => (
-                      <button key={item.id} type="button"
-                        onClick={() => { setSelectedInsumo(item); setCompraSearch(`${item.marca} — ${item.presentacion}`); }}
-                        className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors text-left border-b border-white/5"
-                      >
-                        <div>
-                          <p className="text-base font-bold text-slate-200">{item.marca}</p>
-                          <p className="text-xs text-slate-500 font-bold">{item.tipo_insumo} · {item.presentacion}</p>
-                        </div>
-                        <span className="text-base font-black text-emerald-400">${fmt(item.precio_promedio)}</span>
-                      </button>
-                    ))}
-                    <button type="button"
-                      onClick={() => { setInsumoForm(EMPTY_INSUMO); setNewInsumoModal(true); }}
-                      className="w-full flex items-center gap-3 px-6 py-4 hover:bg-brand-yellow/5 transition-colors text-left text-brand-yellow font-black text-sm"
-                    >
-                      <Plus size={16} className="stroke-[3px]" /> Agregar nuevo insumo
-                    </button>
+                    {compraSearch.length >= 2 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 rounded-2xl border border-white/10 overflow-hidden bg-slate-900 shadow-2xl z-50">
+                        {searchResults.map(item => (
+                          <button key={item.id} type="button"
+                            onClick={() => { setSelectedInsumo(item); setCompraSearch(`${item.marca} — ${item.presentacion}`); }}
+                            className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors text-left border-b border-white/5"
+                          >
+                            <div>
+                              <p className="text-base font-bold text-slate-200">{item.marca}</p>
+                              <p className="text-xs text-slate-500 font-bold">{item.tipo_insumo} · {item.presentacion}</p>
+                            </div>
+                            <span className="text-base font-black text-emerald-400">${fmt(item.precio_promedio)}</span>
+                          </button>
+                        ))}
+                        {searchResults.length === 0 && (
+                          <p className="px-6 py-3 text-sm text-slate-500 italic">Sin resultados</p>
+                        )}
+                        <button type="button"
+                          onClick={() => { setInsumoForm(EMPTY_INSUMO); setNewInsumoModal(true); }}
+                          className="w-full flex items-center gap-3 px-6 py-4 hover:bg-brand-yellow/5 transition-colors text-left text-brand-yellow font-black text-sm border-t border-white/5"
+                        >
+                          <Plus size={16} className="stroke-[3px]" /> Agregar nuevo insumo
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
