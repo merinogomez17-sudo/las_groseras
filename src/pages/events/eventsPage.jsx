@@ -13,6 +13,20 @@ import { PDFDownloadLink } from '@react-pdf/renderer';
 import ShoppingListPDF from '../../components/inventory/ShoppingListPDF';
 import EventShoppingListPDF from '../../components/events/EventShoppingListPDF';
 
+const calcComponentCost = (comp, inventory, genericOptions) => {
+  const qty = parseFloat(comp.cantidad) || 0;
+  if (comp.is_generic) {
+    const gen = genericOptions.find(g => g.value === (comp.tipo_insumo || comp.insumo_nombre_manual));
+    return gen ? (gen.avgPrice * qty) : 0;
+  } else {
+    const insumo = inventory.find(i => i.id === comp.insumo_id);
+    if (!insumo) return 0;
+    return insumo.precio_x_ml 
+      ? (insumo.precio_x_ml * qty) 
+      : ((insumo.precio_promedio / (insumo.ml_gr_pieza || 1)) * qty);
+  }
+};
+
 const EventsPage = () => {
   const [events, setEvents]                     = useState([]);
   const [loading, setLoading]                   = useState(true);
@@ -35,6 +49,7 @@ const EventsPage = () => {
   
   // AI Suggestions
   const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [aiResumen, setAiResumen]         = useState(null);
   const [isAiLoading, setIsAiLoading]     = useState(false);
   const [aiError, setAiError]             = useState(null);
   const [selectedAiOption, setSelectedAiOption] = useState(null);
@@ -59,8 +74,55 @@ const EventsPage = () => {
   };
 
   const fetchRecipes = async () => {
-    const { data } = await supabase.from('recetas_base').select('*').order('nombre');
-    setAvailableRecipes(data || []);
+    try {
+      // Fetch recetas con sus componentes
+      const { data: recipesData } = await supabase
+        .from('recetas_base')
+        .select('*, receta_componentes (*, insumos (tipo_insumo, marca, presentacion, precio_promedio, ml_gr_pieza, precio_x_ml))')
+        .order('nombre');
+
+      // Fetch insumos del inventario para costos genéricos
+      const { data: inventory } = await supabase.from('insumos').select('*').order('marca');
+      const inv = inventory || [];
+
+      // Calcular opciones genéricas (precios promedio por categoría)
+      const types = {};
+      inv.forEach(item => {
+        if (!item.tipo_insumo) return;
+        if (!types[item.tipo_insumo]) {
+          types[item.tipo_insumo] = { total: 0, count: 0 };
+        }
+        const pricePerUnit = item.precio_x_ml || (item.precio_promedio / (item.ml_gr_pieza || 1)) || 0;
+        if (pricePerUnit > 0) {
+          types[item.tipo_insumo].total += pricePerUnit;
+          types[item.tipo_insumo].count += 1;
+        }
+      });
+      const genericOptions = Object.keys(types).sort().map(type => ({
+        value: type,
+        avgPrice: types[type].total / types[type].count
+      }));
+
+      // Calcular costo dinámico para cada receta
+      const recipesWithCosts = (recipesData || []).map(recipe => {
+        const total = recipe.receta_componentes?.reduce((acc, c) => {
+          const isGeneric = !c.insumo_id && !!c.insumo_nombre_manual;
+          const normalizedComp = {
+            is_generic: isGeneric,
+            insumo_id: c.insumo_id,
+            tipo_insumo: isGeneric ? c.insumo_nombre_manual : '',
+            cantidad: c.cantidad
+          };
+          return acc + calcComponentCost(normalizedComp, inv, genericOptions);
+        }, 0) || 0;
+        return { ...recipe, total_cost: total };
+      });
+
+      setAvailableRecipes(recipesWithCosts);
+    } catch (err) {
+      console.error('Error fetching recipes with costs:', err);
+      toast.error('No se pudieron calcular los costos de las recetas');
+    }
   };
 
   const fetchBeers = async () => {
@@ -156,7 +218,7 @@ const EventsPage = () => {
       
       if (alreadyHasDist) {
         setHasExistingDist(true);
-        setShoppingStep('distribute');
+        calculateShoppingList(event.id);
       } else {
         setShoppingStep('ai');
         fetchAiSuggestions(event, selection);
@@ -171,6 +233,7 @@ const EventsPage = () => {
     setAiError(null);
     setSelectedAiOption(null);
     setAiSuggestions([]);
+    setAiResumen(null);
 
     const controller = new AbortController();
     const timeoutId  = setTimeout(() => controller.abort(), 30000);
@@ -191,6 +254,8 @@ const EventsPage = () => {
         nombre_evento: event.nombre_evento,
         tipo_evento: event.tipo_evento || 'fiesta',
         numero_personas: event.numero_personas,
+        hora_inicio: event.hora_inicio || null,
+        hora_fin: event.hora_fin || null,
         recetas: recipesForAi.map(p => ({
           receta_id: p.receta_id,
           nombre: p.recetas_base?.nombre || p.nombre,
@@ -225,8 +290,11 @@ const EventsPage = () => {
         return;
       }
 
-      console.log('Final AI Options:', data.opciones);
-      setAiSuggestions(data.opciones || []);
+      console.log('Final AI Resumen:', data.resumen);
+      console.log('Final AI Escenarios:', data.escenarios);
+      
+      setAiResumen(data.resumen || null);
+      setAiSuggestions(data.escenarios || []);
     } catch (err) {
       console.error('AI Error:', err);
       const isTimeout = err.name === 'AbortError';
@@ -339,19 +407,10 @@ const EventsPage = () => {
 
 
 
-  const handleSaveDistAndCalculate = async () => {
+  const calculateShoppingList = async (eventId) => {
     setIsCalculatingList(true);
-    const loadingToast = toast.loading('Guardando y calculando insumos...');
     try {
-      // 1. Guardar cantidades en Supabase
-      for (const item of eventProductsForDist) {
-        await supabase
-          .from('evento_productos')
-          .update({ cantidad: item.cantidad })
-          .eq('id', item.id);
-      }
-
-      // 2. Fetch data completa para el cálculo
+      // Fetch data completa para el cálculo
       const { data: selection } = await supabase
         .from('evento_productos')
         .select(`
@@ -366,9 +425,9 @@ const EventsPage = () => {
             )
           )
         `)
-        .eq('evento_id', selectedEvent.id);
+        .eq('evento_id', eventId);
 
-      // 3. Fetch inventario e insumos
+      // Fetch inventario e insumos
       const { data: inventoryData } = await supabase.from('inventario').select('*');
       const { data: insumosData } = await supabase.from('insumos').select('*');
 
@@ -381,13 +440,18 @@ const EventsPage = () => {
 
           if (!totals[key]) {
             if (isGeneric) {
+              const precioPromedio = insumosData
+                ?.filter(i => i.tipo_insumo?.toLowerCase() === comp.insumo_nombre_manual?.toLowerCase())
+                .reduce((sum, i, _, arr) => sum + ((i.precio_x_ml || 0) / arr.length), 0) || 0;
+
               totals[key] = {
                 nombre: comp.insumo_nombre_manual,
                 necesitas: 0,
                 en_inventario: 0,
                 a_comprar: 0,
                 unidad: comp.unidad || 'Pzas',
-                is_generic: true
+                is_generic: true,
+                precio_x_ml: precioPromedio
               };
             } else {
               const insumo = insumosData?.find(i => i.id === comp.insumo_id);
@@ -399,6 +463,7 @@ const EventsPage = () => {
                 en_inventario: inv?.cantidad_actual || 0,
                 unidad: insumo?.presentacion || inv?.unidad || comp.unidad || 'Pzas',
                 proveedor: inv?.proveedor || 'N/A',
+                precio_x_ml: insumo?.precio_x_ml || 0,
                 is_generic: false
               };
             }
@@ -409,16 +474,34 @@ const EventsPage = () => {
 
       const finalItems = Object.values(totals).map(item => ({
         ...item,
-        a_comprar: item.is_generic ? 0 : Math.max(0, item.necesitas - item.en_inventario)
+        a_comprar: item.is_generic ? item.necesitas : Math.max(0, item.necesitas - item.en_inventario)
       }));
 
       setShoppingListItems(finalItems);
       setShoppingStep('list');
+    } catch (err) {
+      console.error('Calculation error:', err);
+      toast.error('Error al calcular la lista');
+    } finally {
+      setIsCalculatingList(false);
+    }
+  };
+
+  const handleSaveDistAndCalculate = async () => {
+    const loadingToast = toast.loading('Guardando y calculando insumos...');
+    try {
+      // 1. Guardar cantidades en Supabase
+      for (const item of eventProductsForDist) {
+        await supabase
+          .from('evento_productos')
+          .update({ cantidad: item.cantidad })
+          .eq('id', item.id);
+      }
+
+      await calculateShoppingList(selectedEvent.id);
       toast.success('Lista calculada con éxito', { id: loadingToast });
     } catch (err) {
       toast.error('Error: ' + err.message, { id: loadingToast });
-    } finally {
-      setIsCalculatingList(false);
     }
   };
 
@@ -788,23 +871,47 @@ const EventsPage = () => {
                     ) : (
                       <div className="grid gap-4">
                         <p className="text-xs font-black text-slate-500 tracking-widest uppercase mb-2">Sugerencias de Distribución (IA)</p>
+                        
+                        {aiResumen && (
+                          <div className="p-4 bg-brand-red/10 border border-brand-red/20 rounded-2xl mb-2">
+                            <p className="text-[11px] font-black text-brand-red tracking-tight uppercase text-center">
+                              Estimado: {aiResumen.bebidas_por_persona} bebidas/persona · {aiResumen.total_porciones} porciones totales · Horario: {aiResumen.horario_label}
+                            </p>
+                          </div>
+                        )}
                         {Array.isArray(aiSuggestions) && aiSuggestions.length > 0 ? (
-                          aiSuggestions.map((opt, idx) => (
-                            <motion.div
-                              key={idx}
-                              whileHover={{ scale: 1.02 }}
-                              whileTap={{ scale: 0.98 }}
-                              onClick={() => setSelectedAiOption(idx)}
-                              className={`p-5 rounded-3xl border-2 transition-all cursor-pointer relative overflow-hidden group
-                                ${selectedAiOption === idx ? 'bg-brand-red/10 border-brand-red shadow-lg shadow-brand-red/20' : 'bg-white/5 border-white/5 hover:border-white/10'}`}
-                            >
-                              <div className="flex justify-between items-start mb-3 relative z-10">
-                                <div>
-                                  <h4 className={`text-lg font-black tracking-tighter ${selectedAiOption === idx ? 'text-brand-red' : 'text-white'}`}>{opt.titulo}</h4>
-                                  <p className="text-xs text-slate-500 font-bold">{opt.descripcion}</p>
+                          aiSuggestions.map((opt, idx) => {
+                            const totalPorciones = opt.distribucion.reduce((sum, item) => sum + item.cantidad, 0);
+                            const costoEscenario = opt.distribucion.reduce((total, item) => {
+                              const receta = availableRecipes.find(r => r.id === item.receta_id);
+                              const costoUnitario = receta?.total_cost || receta?.costo_total || 0;
+                              return total + (costoUnitario * item.cantidad);
+                            }, 0);
+
+                            return (
+                              <motion.div
+                                key={idx}
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={() => setSelectedAiOption(idx)}
+                                className={`p-5 rounded-3xl border-2 transition-all cursor-pointer relative overflow-hidden group
+                                  ${selectedAiOption === idx ? 'bg-brand-red/10 border-brand-red shadow-lg shadow-brand-red/20' : 'bg-white/5 border-white/5 hover:border-white/10'}`}
+                              >
+                                <div className="flex justify-between items-start mb-3 relative z-10">
+                                  <div>
+                                    <h4 className={`text-lg font-black tracking-tighter ${selectedAiOption === idx ? 'text-brand-red' : 'text-white'}`}>{opt.titulo}</h4>
+                                    <p className="text-xs text-slate-500 font-bold">{opt.descripcion}</p>
+                                    {opt.razon && (
+                                      <p className="text-[10px] text-brand-red/60 font-bold mt-1 italic">
+                                        {opt.razon}
+                                      </p>
+                                    )}
+                                    <p className="text-[11px] font-black text-brand-red mt-2 flex items-center gap-1">
+                                      <span>🍺 Total: {totalPorciones} porciones · 💰 Costo estimado:</span> ${costoEscenario.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN
+                                    </p>
+                                  </div>
+                                  {selectedAiOption === idx && <CheckCircle size={20} className="text-brand-red" />}
                                 </div>
-                                {selectedAiOption === idx && <CheckCircle size={20} className="text-brand-red" />}
-                              </div>
                               <div className="flex flex-wrap gap-2 relative z-10">
                                 {Array.isArray(opt.distribucion) && opt.distribucion.map((d, i) => (
                                   <span key={i} className="text-[10px] font-black px-2 py-1 rounded-lg bg-white/5 text-slate-400 border border-white/5">
@@ -813,8 +920,9 @@ const EventsPage = () => {
                                 ))}
                               </div>
                             </motion.div>
-                          ))
-                        ) : (
+                          );
+                        })
+                      ) : (
                           <div className="p-10 text-center bg-white/5 rounded-3xl border border-white/5">
                             <p className="text-slate-500 font-bold">La IA no devolvió opciones válidas.</p>
                           </div>
@@ -954,7 +1062,12 @@ const EventsPage = () => {
                     </button>
                   ) : (
                     <>
-                      <button onClick={() => setShoppingStep('distribute')} className="btn-secondary px-6">Reajustar</button>
+                      <button 
+                        onClick={() => setShoppingStep('distribute')} 
+                        className="px-6 py-2 border border-white/10 hover:border-white/20 rounded-xl text-[10px] font-black text-slate-400 hover:text-white transition-all tracking-widest uppercase"
+                      >
+                        Editar porciones
+                      </button>
                       <PDFDownloadLink
                         document={<EventShoppingListPDF event={selectedEvent} items={shoppingListItems} recipes={eventProductsForDist} />}
                         fileName={`Lista_Compras_${selectedEvent?.nombre_evento.replace(/\s+/g, '_')}.pdf`}

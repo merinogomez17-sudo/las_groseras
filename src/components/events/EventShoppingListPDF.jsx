@@ -84,10 +84,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textTransform: 'uppercase',
   },
-  colInsumo: { flex: 3 },
-  colQty: { flex: 1, textAlign: 'center' },
-  colStock: { flex: 1, textAlign: 'center' },
-  colBuy: { flex: 1, textAlign: 'center' },
+  colInsumo: { flex: 2.5 },
+  colQty: { flex: 0.8, textAlign: 'center' },
+  colStock: { flex: 0.8, textAlign: 'center' },
+  colBuy: { flex: 0.8, textAlign: 'center' },
+  colCost: { flex: 1.2, textAlign: 'right' },
   
   cellText: {
     fontSize: 9,
@@ -99,6 +100,43 @@ const styles = StyleSheet.create({
   },
   cellBuy: {
     color: '#BE123C',
+    fontWeight: 'black',
+  },
+  cellCost: {
+    fontSize: 9,
+    color: '#334155',
+    textAlign: 'right',
+    fontWeight: 'bold',
+  },
+  totalsContainer: {
+    marginTop: 20,
+    borderTop: '1pt solid #BE123C',
+    paddingTop: 10,
+    alignItems: 'flex-end',
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 4,
+    width: '100%',
+  },
+  totalLabel: {
+    fontSize: 9,
+    color: '#64748b',
+    width: 200,
+    textAlign: 'right',
+    marginRight: 10,
+  },
+  totalValue: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    width: 100,
+    textAlign: 'right',
+  },
+  totalToInvest: {
+    color: '#BE123C',
+    fontSize: 11,
     fontWeight: 'black',
   },
   footer: {
@@ -126,6 +164,17 @@ const EventShoppingListPDF = ({ event, items, recipes = [] }) => {
     month: 'long', 
     year: 'numeric'
   });
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+    }).format(amount || 0);
+  };
+
+  const totalEstimated = items.reduce((acc, i) => acc + ((i.precio_x_ml || 0) * (i.necesitas || 0)), 0);
+  const inventoryValue = items.reduce((acc, i) => acc + ((i.precio_x_ml || 0) * (i.en_inventario || 0)), 0);
+  const investmentTotal = items.reduce((acc, i) => acc + ((i.precio_x_ml || 0) * (i.a_comprar || 0)), 0);
 
   return (
     <Document title={`Lista de Compras - ${event.nombre_evento}`}>
@@ -173,6 +222,7 @@ const EventShoppingListPDF = ({ event, items, recipes = [] }) => {
                 <View style={styles.colQty}><Text style={styles.headerCol}>Necesitas</Text></View>
                 <View style={styles.colStock}><Text style={styles.headerCol}>Stock</Text></View>
                 <View style={styles.colBuy}><Text style={styles.headerCol}>A Comprar</Text></View>
+                <View style={styles.colCost}><Text style={styles.headerCol}>Costo est.</Text></View>
               </View>
 
               {specificItems.map((item, idx) => (
@@ -191,6 +241,11 @@ const EventShoppingListPDF = ({ event, items, recipes = [] }) => {
                       {item.a_comprar.toFixed(1)}
                     </Text>
                   </View>
+                  <View style={styles.colCost}>
+                    <Text style={styles.cellCost}>
+                      {formatCurrency((item.precio_x_ml || 0) * item.a_comprar)}
+                    </Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -206,6 +261,7 @@ const EventShoppingListPDF = ({ event, items, recipes = [] }) => {
                 <View style={styles.colInsumo}><Text style={styles.headerCol}>Insumo / Tipo</Text></View>
                 <View style={styles.colQty}><Text style={styles.headerCol}>Necesitas</Text></View>
                 <View style={styles.colStock}><Text style={styles.headerCol}>Unidad</Text></View>
+                <View style={styles.colCost}><Text style={styles.headerCol}>Costo est.</Text></View>
               </View>
 
               {genericItems.map((item, idx) => (
@@ -219,11 +275,32 @@ const EventShoppingListPDF = ({ event, items, recipes = [] }) => {
                   <View style={styles.colStock}>
                     <Text style={styles.cellText}>{item.unidad}</Text>
                   </View>
+                  <View style={styles.colCost}>
+                    <Text style={styles.cellCost}>
+                      {formatCurrency((item.precio_x_ml || 0) * item.a_comprar)}
+                    </Text>
+                  </View>
                 </View>
               ))}
             </View>
           </>
         )}
+
+        {/* TOTALS SECTION */}
+        <View style={styles.totalsContainer} wrap={false}>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Total estimado de consumo:</Text>
+            <Text style={styles.totalValue}>{formatCurrency(totalEstimated)}</Text>
+          </View>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Valor en inventario:</Text>
+            <Text style={styles.totalValue}>{formatCurrency(inventoryValue)}</Text>
+          </View>
+          <View style={[styles.totalRow, { borderTop: '0.5pt solid #e2e8f0', marginTop: 4, paddingTop: 4 }]}>
+            <Text style={[styles.totalLabel, { fontWeight: 'bold', color: '#1e293b' }]}>Total a invertir:</Text>
+            <Text style={[styles.totalValue, styles.totalToInvest]}>{formatCurrency(investmentTotal)}</Text>
+          </View>
+        </View>
 
         {/* FOOTER */}
         <View style={styles.footer}>
