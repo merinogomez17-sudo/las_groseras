@@ -7,12 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 
-const TIPOS = [
-  'Adicionales - dulces', 'Alcohol', 'Cerveza', 'Energizante',
-  'Insumo secreto', 'Jarabe', 'MP indirecta', 'Otros',
-  'Polvo para escarchar', 'Pulpa liquida', 'Pulpa para escarchar',
-  'Refresco', 'Salsas', 'Vasos'
-];
+
 
 const EMPTY_INSUMO = {
   tipo_insumo: 'Alcohol', marca: '', presentacion: '', precio_promedio: '', ml_gr_pieza: ''
@@ -61,6 +56,10 @@ export default function InsumosPage() {
     });
     return g;
   }, [insumos]);
+
+  const tiposExistentes = useMemo(() => 
+    [...new Set(insumos.map(i => i.tipo_insumo).filter(Boolean))].sort()
+  , [insumos]);
 
   const toggleTipo = (tipo) => setExpanded(p => ({ ...p, [tipo]: !p[tipo] }));
 
@@ -314,13 +313,17 @@ export default function InsumosPage() {
                     <form onSubmit={handleSaveInsumo} className="space-y-4">
                       <div>
                         <label className="block text-xs font-black text-slate-500 tracking-widest mb-2">Tipo de Insumo</label>
-                        <select
-                          required className="input-field"
+                        <input
+                          required
+                          list="tipos-insumo-list"
+                          className="input-field"
+                          placeholder="Selecciona o escribe un tipo nuevo..."
                           value={insumoForm.tipo_insumo}
                           onChange={e => setInsumoForm(p => ({ ...p, tipo_insumo: e.target.value }))}
-                        >
-                          {TIPOS.map(t => <option key={t} value={t} className="bg-slate-900">{t}</option>)}
-                        </select>
+                        />
+                        <datalist id="tipos-insumo-list">
+                          {tiposExistentes.map(t => <option key={t} value={t} />)}
+                        </datalist>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
