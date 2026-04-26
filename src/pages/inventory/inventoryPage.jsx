@@ -485,6 +485,13 @@ const InventoryPage = () => {
             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
           </button>
           <button
+            onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setQuickSearch(''); setQuickItem(null); setQuickQty(''); setPanel(PANEL.QUICK_STOCK); }}
+            className={`btn-secondary shadow-xl shadow-brand-teal/10 px-6 py-3 flex-1 sm:flex-none justify-center ${panel === PANEL.QUICK_STOCK ? 'ring-2 ring-brand-teal/50' : ''}`}
+          >
+            <Plus size={20} />
+            <span className="font-black">Agregar Stock</span>
+          </button>
+          <button
             className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl hover:bg-emerald-500/20 transition-all font-black shadow-xl shadow-emerald-500/10 flex-1 sm:flex-none text-[15px]"
             onClick={() => setIsBulkModalOpen(true)}
           >
