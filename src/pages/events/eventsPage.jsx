@@ -147,7 +147,8 @@ const EventsPage = () => {
         id: p.id,
         receta_id: p.receta_id,
         nombre: p.recetas_base?.nombre || 'Receta sin nombre',
-        cantidad: p.cantidad || 0
+        cantidad: p.cantidad || 0,
+        categoria: p.recetas_base?.categoria || ''
       }));
       setEventProductsForDist(products);
       
@@ -169,6 +170,7 @@ const EventsPage = () => {
     setIsAiLoading(true);
     setAiError(null);
     setSelectedAiOption(null);
+    setAiSuggestions([]);
 
     const controller = new AbortController();
     const timeoutId  = setTimeout(() => controller.abort(), 30000);
@@ -191,8 +193,8 @@ const EventsPage = () => {
         numero_personas: event.numero_personas,
         recetas: recipesForAi.map(p => ({
           receta_id: p.receta_id,
-          nombre: p.recetas_base?.nombre,
-          categoria: p.recetas_base?.categoria
+          nombre: p.recetas_base?.nombre || p.nombre,
+          categoria: p.recetas_base?.categoria || p.categoria
         }))
       };
 
