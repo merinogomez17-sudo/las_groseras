@@ -28,7 +28,7 @@ const EMPTY_INSUMO = {
   tipo_insumo: 'Alcohol', marca: '', presentacion: '', precio_promedio: '', ml_gr_pieza: ''
 };
 
-const PANEL = { NONE: null, FORM: 'form', COMPRA: 'compra' };
+const PANEL = { NONE: null, FORM: 'form', COMPRA: 'compra', QUICK_STOCK: 'quick_stock' };
 
 const TIPOS = [
   'Adicionales - dulces', 'Alcohol', 'Cerveza', 'Energizante',
@@ -72,6 +72,11 @@ const InventoryPage = () => {
     fecha_compra: new Date().toISOString().split('T')[0]
   });
   const [savingCompra, setSavingCompra]       = useState(false);
+
+  // Quick stock (agregar stock existente sin compra)
+  const [quickSearch, setQuickSearch]         = useState('');
+  const [quickItem, setQuickItem]             = useState(null);
+  const [quickQty, setQuickQty]               = useState('');
 
   useEffect(() => {
     fetchInventory();
@@ -164,6 +169,41 @@ const InventoryPage = () => {
   };
 
   const closePanel = () => setPanel(PANEL.NONE);
+
+  const openQuickStock = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setQuickSearch('');
+    setQuickItem(null);
+    setQuickQty('');
+    setPanel(PANEL.QUICK_STOCK);
+  };
+
+  const handleQuickStockSave = async (e) => {
+    e.preventDefault();
+    if (!quickItem) return toast.error('Selecciona un producto');
+    const qty = parseFloat(quickQty);
+    if (isNaN(qty) || qty <= 0) return toast.error('Ingresa una cantidad válida');
+
+    const loadingToast = toast.loading('Agregando stock...');
+    try {
+      // precio_promedio del insumo vinculado como precio_unitario actualizado
+      const precioActualizado = quickItem.insumo_id
+        ? insumos.find(i => i.id === quickItem.insumo_id)?.precio_promedio ?? quickItem.precio_unitario
+        : quickItem.precio_unitario;
+
+      const { error } = await supabase.from('inventario').update({
+        cantidad_actual: parseFloat(quickItem.cantidad_actual) + qty,
+        precio_unitario: precioActualizado,
+      }).eq('id', quickItem.id);
+      if (error) throw error;
+
+      toast.success('Stock actualizado', { id: loadingToast });
+      closePanel();
+      fetchInventory();
+    } catch (err) {
+      toast.error('Error: ' + err.message, { id: loadingToast });
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -453,6 +493,13 @@ const InventoryPage = () => {
             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
           </button>
           <button
+            onClick={openQuickStock}
+            className={`btn-secondary shadow-xl shadow-brand-teal/10 px-6 py-3 flex-1 sm:flex-none justify-center ${panel === PANEL.QUICK_STOCK ? 'ring-2 ring-brand-teal/50' : ''}`}
+          >
+            <Plus size={20} />
+            <span className="font-black">Agregar Stock</span>
+          </button>
+          <button
             onClick={openCompra}
             className={`btn-secondary shadow-xl shadow-brand-yellow/10 px-6 py-3 flex-1 sm:flex-none justify-center ${panel === PANEL.COMPRA ? 'ring-2 ring-brand-yellow/50' : ''}`}
           >
@@ -631,6 +678,11 @@ const InventoryPage = () => {
                                 )}
                                 <td className="px-6 py-4 text-right">
                                   <div className="flex justify-end gap-1">
+                                    <button onClick={(e) => { e.stopPropagation(); setQuickItem(item); setQuickSearch(`${item.producto_base} (${item.formato})`); setQuickQty(''); setPanel(PANEL.QUICK_STOCK); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                      title="Agregar stock existente"
+                                      className="p-2 hover:bg-brand-teal/10 rounded-lg text-brand-teal/60 hover:text-brand-teal">
+                                      <Plus size={13} />
+                                    </button>
                                     <button onClick={(e) => { e.stopPropagation(); setAdjustingItem(item); }}
                                       title="Ajustar stock"
                                       className="p-2 hover:bg-brand-yellow/10 rounded-lg text-brand-yellow/60 hover:text-brand-yellow">
@@ -743,6 +795,99 @@ const InventoryPage = () => {
                     <div className="pt-4">
                       <button type="submit" className="btn-primary w-full py-3 font-black">
                         <Save size={16} /> GUARDAR CAMBIOS
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* PANEL AGREGAR STOCK EXISTENTE */}
+            <AnimatePresence>
+              {panel === PANEL.QUICK_STOCK && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+                  className="w-96 glass border-white/5 p-6 shrink-0 sticky top-6 max-h-[calc(100vh-6rem)] overflow-y-auto custom-scrollbar"
+                >
+                  <button onClick={closePanel} className="absolute right-4 top-4 text-slate-500 hover:text-white"><X size={18}/></button>
+                  <h2 className="text-xl font-black text-white tracking-tighter mb-1 flex items-center gap-2">
+                    <Plus size={18} className="text-brand-teal" />
+                    Agregar Stock Existente
+                  </h2>
+                  <p className="text-[11px] text-slate-500 font-bold mb-5">Sin registrar compra. Usa el precio promedio actual del insumo.</p>
+
+                  <form onSubmit={handleQuickStockSave} className="space-y-4">
+                    {/* Buscador de producto en inventario */}
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Producto</label>
+                      {quickItem ? (
+                        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-brand-teal/10 border border-brand-teal/20">
+                          <div>
+                            <p className="text-sm font-black text-white">{quickItem.producto_base}</p>
+                            <p className="text-[10px] text-slate-500 font-bold">{quickItem.formato} · Stock actual: {quickItem.cantidad_actual} {quickItem.unidad}</p>
+                          </div>
+                          <button type="button" onClick={() => { setQuickItem(null); setQuickSearch(''); }}
+                            className="text-slate-500 hover:text-white p-1"><X size={14}/></button>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                          <input
+                            autoFocus
+                            type="text" placeholder="Buscar producto en stock..."
+                            className="input-field pl-9 text-sm"
+                            value={quickSearch}
+                            onChange={e => setQuickSearch(e.target.value)}
+                          />
+                        </div>
+                      )}
+                      {!quickItem && quickSearch.length >= 2 && (
+                        <div className="mt-1 rounded-xl border border-white/10 overflow-hidden bg-slate-900/80 shadow-xl">
+                          {items.filter(i => {
+                            const q = quickSearch.toLowerCase();
+                            return `${i.producto_base} ${i.formato} ${i.nombre}`.toLowerCase().includes(q);
+                          }).slice(0, 7).map(i => (
+                            <button key={i.id} type="button"
+                              onClick={() => { setQuickItem(i); setQuickSearch(`${i.producto_base} (${i.formato})`); }}
+                              className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors text-left border-b border-white/5 last:border-0"
+                            >
+                              <div>
+                                <p className="text-sm font-bold text-slate-200">{i.producto_base}</p>
+                                <p className="text-[10px] text-slate-500 font-bold">{i.formato} · {i.cantidad_actual} {i.unidad}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Precio promedio info */}
+                    {quickItem && (() => {
+                      const linkedInsumo = quickItem.insumo_id ? insumos.find(i => i.id === quickItem.insumo_id) : null;
+                      const precio = linkedInsumo?.precio_promedio ?? quickItem.precio_unitario;
+                      return (
+                        <div className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 flex justify-between items-center">
+                          <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Precio promedio</span>
+                          <span className="text-base font-black text-emerald-400">${fmt(precio)}</span>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Cantidad */}
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Cantidad a agregar</label>
+                      <input
+                        required type="number" step="0.01" min="0.01"
+                        className="input-field font-black text-brand-teal text-lg"
+                        placeholder="0"
+                        value={quickQty}
+                        onChange={e => setQuickQty(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="pt-2">
+                      <button type="submit" className="btn-primary w-full py-3 font-black">
+                        <Save size={16} /> AGREGAR AL STOCK
                       </button>
                     </div>
                   </form>
