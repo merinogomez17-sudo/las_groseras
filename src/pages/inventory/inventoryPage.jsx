@@ -170,14 +170,6 @@ const InventoryPage = () => {
 
   const closePanel = () => setPanel(PANEL.NONE);
 
-  const openQuickStock = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setQuickSearch('');
-    setQuickItem(null);
-    setQuickQty('');
-    setPanel(PANEL.QUICK_STOCK);
-  };
-
   const handleQuickStockSave = async (e) => {
     e.preventDefault();
     if (!quickItem) return toast.error('Selecciona un producto');
@@ -493,27 +485,6 @@ const InventoryPage = () => {
             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
           </button>
           <button
-            onClick={openQuickStock}
-            className={`btn-secondary shadow-xl shadow-brand-teal/10 px-6 py-3 flex-1 sm:flex-none justify-center ${panel === PANEL.QUICK_STOCK ? 'ring-2 ring-brand-teal/50' : ''}`}
-          >
-            <Plus size={20} />
-            <span className="font-black">Agregar Stock</span>
-          </button>
-          <button
-            onClick={openCompra}
-            className={`btn-secondary shadow-xl shadow-brand-yellow/10 px-6 py-3 flex-1 sm:flex-none justify-center ${panel === PANEL.COMPRA ? 'ring-2 ring-brand-yellow/50' : ''}`}
-          >
-            <ShoppingCart size={20} />
-            <span className="font-black">Registrar Compra</span>
-          </button>
-          <button
-            className={`btn-primary shadow-xl shadow-brand-red/40 px-6 py-3 flex-1 sm:flex-none justify-center ${panel === PANEL.FORM && !editingItem ? 'ring-2 ring-brand-red/50' : ''}`}
-            onClick={() => openPanel()}
-          >
-            <Plus size={20} className="stroke-[3px]" />
-            <span className="font-black">Nuevo insumo</span>
-          </button>
-          <button
             className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl hover:bg-emerald-500/20 transition-all font-black shadow-xl shadow-emerald-500/10 flex-1 sm:flex-none text-[15px]"
             onClick={() => setIsBulkModalOpen(true)}
           >
@@ -557,7 +528,7 @@ const InventoryPage = () => {
         ].map(tab => (
           <button
             key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setPanel(PANEL.NONE); }}
+            onClick={() => { setActiveTab(tab.id); setPanel(PANEL.NONE); if (tab.id === 'compra') openCompra(); }}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black tracking-widest transition-all
               ${activeTab === tab.id ? 'bg-brand-red text-white shadow-lg shadow-brand-red/20' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
           >
