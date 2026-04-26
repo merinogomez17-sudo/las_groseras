@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Package, Search, Plus, Filter, Download,
   AlertTriangle, TrendingUp,
@@ -67,6 +68,8 @@ const InventoryPage = () => {
   const [selectedInsumo, setSelectedInsumo]   = useState(null);
   const [newInsumoModal, setNewInsumoModal]   = useState(false);
   const [savingNewInsumo, setSavingNewInsumo] = useState(false);
+  const compraSearchRef = useRef(null);
+  const quickSearchRef  = useRef(null);
   const [insumoForm, setInsumoForm]           = useState(EMPTY_INSUMO);
   const [compraForm, setCompraForm]           = useState({
     cantidad_comprada: '', precio_total_compra: '', lugar_compra: '',
@@ -173,22 +176,41 @@ const InventoryPage = () => {
 
   const handleQuickStockSave = async (e) => {
     e.preventDefault();
-    if (!quickItem) return toast.error('Selecciona un producto');
+    if (!quickItem) return toast.error('Selecciona un insumo');
     const qty = parseFloat(quickQty);
     if (isNaN(qty) || qty <= 0) return toast.error('Ingresa una cantidad válida');
 
     const loadingToast = toast.loading('Agregando stock...');
     try {
-      // precio_promedio del insumo vinculado como precio_unitario actualizado
-      const precioActualizado = quickItem.insumo_id
-        ? insumos.find(i => i.id === quickItem.insumo_id)?.precio_promedio ?? quickItem.precio_unitario
-        : quickItem.precio_unitario;
+      const precio = quickItem.precio_promedio || 0;
 
-      const { error } = await supabase.from('inventario').update({
-        cantidad_actual: parseFloat(quickItem.cantidad_actual) + qty,
-        precio_unitario: precioActualizado,
-      }).eq('id', quickItem.id);
-      if (error) throw error;
+      // Buscar si ya existe en inventario vinculado a este insumo
+      const { data: existing } = await supabase
+        .from('inventario').select('id, cantidad_actual')
+        .eq('insumo_id', quickItem.id);
+
+      if (existing && existing.length > 0) {
+        const { error } = await supabase.from('inventario').update({
+          cantidad_actual: parseFloat(existing[0].cantidad_actual) + qty,
+          precio_unitario: precio,
+        }).eq('id', existing[0].id);
+        if (error) throw error;
+      } else {
+        // Crear nuevo registro en inventario
+        const { error } = await supabase.from('inventario').insert([{
+          insumo_id: quickItem.id,
+          nombre: `${quickItem.marca} (${quickItem.presentacion})`,
+          producto_base: quickItem.marca,
+          formato: quickItem.presentacion,
+          cantidad_actual: qty,
+          cantidad_minima: 0,
+          unidad: quickItem.presentacion,
+          precio_unitario: precio,
+          categoria: quickItem.tipo_insumo || 'Otros',
+          proveedor: '', notas: '',
+        }]);
+        if (error) throw error;
+      }
 
       toast.success('Stock actualizado', { id: loadingToast });
       closePanel();
@@ -810,61 +832,72 @@ const InventoryPage = () => {
                   <p className="text-[11px] text-slate-500 font-bold mb-5">Sin registrar compra. Usa el precio promedio actual del insumo.</p>
 
                   <form onSubmit={handleQuickStockSave} className="space-y-4">
-                    {/* Buscador de producto en inventario */}
                     <div>
-                      <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Producto</label>
+                      <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Insumo</label>
                       {quickItem ? (
                         <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-brand-teal/10 border border-brand-teal/20">
                           <div>
-                            <p className="text-sm font-black text-white">{quickItem.producto_base}</p>
-                            <p className="text-[10px] text-slate-500 font-bold">{quickItem.formato} · Stock actual: {quickItem.cantidad_actual} {quickItem.unidad}</p>
+                            <p className="text-sm font-black text-white">{quickItem.marca}</p>
+                            <p className="text-[10px] text-slate-500 font-bold">{quickItem.tipo_insumo} · {quickItem.presentacion}</p>
                           </div>
                           <button type="button" onClick={() => { setQuickItem(null); setQuickSearch(''); }}
                             className="text-slate-500 hover:text-white p-1"><X size={14}/></button>
                         </div>
                       ) : (
-                        <div className="relative">
+                        <div className="relative" ref={quickSearchRef}>
                           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                           <input
                             autoFocus
-                            type="text" placeholder="Buscar producto en stock..."
+                            type="text" placeholder="Buscar insumo..."
                             className="input-field pl-9 text-sm"
                             value={quickSearch}
                             onChange={e => setQuickSearch(e.target.value)}
                           />
-                        </div>
-                      )}
-                      {!quickItem && quickSearch.length >= 2 && (
-                        <div className="mt-1 rounded-xl border border-white/10 overflow-hidden bg-slate-900/80 shadow-xl">
-                          {items.filter(i => {
-                            const q = quickSearch.toLowerCase();
-                            return `${i.producto_base} ${i.formato} ${i.nombre}`.toLowerCase().includes(q);
-                          }).slice(0, 7).map(i => (
-                            <button key={i.id} type="button"
-                              onClick={() => { setQuickItem(i); setQuickSearch(`${i.producto_base} (${i.formato})`); }}
-                              className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors text-left border-b border-white/5 last:border-0"
-                            >
-                              <div>
-                                <p className="text-sm font-bold text-slate-200">{i.producto_base}</p>
-                                <p className="text-[10px] text-slate-500 font-bold">{i.formato} · {i.cantidad_actual} {i.unidad}</p>
-                              </div>
-                            </button>
-                          ))}
+                          {quickSearch.length >= 2 && quickSearchRef.current && createPortal(
+                            <div style={{
+                              position: 'fixed',
+                              top: quickSearchRef.current.getBoundingClientRect().bottom + 4,
+                              left: quickSearchRef.current.getBoundingClientRect().left,
+                              width: quickSearchRef.current.getBoundingClientRect().width,
+                              zIndex: 9999,
+                            }} className="rounded-xl border border-white/10 overflow-hidden bg-slate-900 shadow-2xl">
+                              {insumos.filter(i => {
+                                const q = quickSearch.toLowerCase();
+                                return `${i.marca} ${i.tipo_insumo} ${i.presentacion}`.toLowerCase().includes(q);
+                              }).slice(0, 7).map(i => (
+                                <button key={i.id} type="button"
+                                  onClick={() => { setQuickItem(i); setQuickSearch(`${i.marca} — ${i.presentacion}`); }}
+                                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors text-left border-b border-white/5"
+                                >
+                                  <div>
+                                    <p className="text-sm font-bold text-slate-200">{i.marca}</p>
+                                    <p className="text-[10px] text-slate-500 font-bold">{i.tipo_insumo} · {i.presentacion}</p>
+                                  </div>
+                                  <span className="text-xs font-black text-emerald-400">${fmt(i.precio_promedio)}</span>
+                                </button>
+                              ))}
+                              {insumos.filter(i => `${i.marca} ${i.tipo_insumo} ${i.presentacion}`.toLowerCase().includes(quickSearch.toLowerCase())).length === 0 && (
+                                <p className="px-4 py-3 text-xs text-slate-500 italic">Sin resultados</p>
+                              )}
+                              <button type="button"
+                                onClick={() => { setInsumoForm(EMPTY_INSUMO); setNewInsumoModal(true); }}
+                                className="w-full flex items-center gap-2 px-4 py-3 hover:bg-brand-yellow/5 transition-colors text-left text-brand-yellow font-black text-xs border-t border-white/5"
+                              >
+                                <Plus size={13} className="stroke-[3px]" /> Agregar nuevo insumo
+                              </button>
+                            </div>,
+                            document.body
+                          )}
                         </div>
                       )}
                     </div>
 
-                    {/* Precio promedio info */}
-                    {quickItem && (() => {
-                      const linkedInsumo = quickItem.insumo_id ? insumos.find(i => i.id === quickItem.insumo_id) : null;
-                      const precio = linkedInsumo?.precio_promedio ?? quickItem.precio_unitario;
-                      return (
-                        <div className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 flex justify-between items-center">
-                          <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Precio promedio</span>
-                          <span className="text-base font-black text-emerald-400">${fmt(precio)}</span>
-                        </div>
-                      );
-                    })()}
+                    {quickItem && (
+                      <div className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 flex justify-between items-center">
+                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Precio promedio</span>
+                        <span className="text-base font-black text-emerald-400">${fmt(quickItem.precio_promedio)}</span>
+                      </div>
+                    )}
 
                     {/* Cantidad */}
                     <div>
@@ -926,8 +959,8 @@ const InventoryPage = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="relative">
-                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 z-10" />
+                  <div className="relative" ref={compraSearchRef}>
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       autoFocus
                       type="text" placeholder="Buscar por marca, tipo o presentación..."
@@ -935,8 +968,14 @@ const InventoryPage = () => {
                       value={compraSearch}
                       onChange={e => setCompraSearch(e.target.value)}
                     />
-                    {compraSearch.length >= 2 && (
-                      <div className="absolute top-full left-0 right-0 mt-1 rounded-2xl border border-white/10 overflow-hidden bg-slate-900 shadow-2xl z-50">
+                    {compraSearch.length >= 2 && compraSearchRef.current && createPortal(
+                      <div style={{
+                        position: 'fixed',
+                        top: compraSearchRef.current.getBoundingClientRect().bottom + 4,
+                        left: compraSearchRef.current.getBoundingClientRect().left,
+                        width: compraSearchRef.current.getBoundingClientRect().width,
+                        zIndex: 9999,
+                      }} className="rounded-2xl border border-white/10 overflow-hidden bg-slate-900 shadow-2xl">
                         {searchResults.map(item => (
                           <button key={item.id} type="button"
                             onClick={() => { setSelectedInsumo(item); setCompraSearch(`${item.marca} — ${item.presentacion}`); }}
@@ -950,7 +989,7 @@ const InventoryPage = () => {
                           </button>
                         ))}
                         {searchResults.length === 0 && (
-                          <p className="px-6 py-3 text-sm text-slate-500 italic">Sin resultados</p>
+                          <p className="px-6 py-3 text-sm text-slate-500 italic">Sin resultados para "{compraSearch}"</p>
                         )}
                         <button type="button"
                           onClick={() => { setInsumoForm(EMPTY_INSUMO); setNewInsumoModal(true); }}
@@ -958,7 +997,8 @@ const InventoryPage = () => {
                         >
                           <Plus size={16} className="stroke-[3px]" /> Agregar nuevo insumo
                         </button>
-                      </div>
+                      </div>,
+                      document.body
                     )}
                   </div>
                 )}
