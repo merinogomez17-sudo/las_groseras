@@ -85,11 +85,16 @@ const calcComponentCost = (comp, inventory, genericOptions, mezclas = []) => {
     const gen = genericOptions.find(g => g.value === (comp.tipo_insumo || comp.insumo_nombre_manual));
     return gen ? (gen.avgPrice * qty) : 0;
   }
-  const insumo = inventory.find(i => i.id === comp.insumo_id);
-  if (!insumo) return 0;
-  return insumo.precio_x_ml
-    ? (insumo.precio_x_ml * qty)
-    : ((insumo.precio_promedio / (insumo.ml_gr_pieza || 1)) * qty);
+  // ESPECÍFICO: promedio ponderado entre todas las presentaciones de esa marca
+  const matches = inventory.filter(i => i.tipo_insumo === comp.tipo_insumo && i.marca === comp.marca);
+  if (!matches.length) return 0;
+  const totalUnits = matches.reduce((s, i) => s + (Number(i.total_unidades_compradas) || 0), 0);
+  if (totalUnits > 0) {
+    const weightedPxml = matches.reduce((s, i) => s + (i.precio_promedio / (i.ml_gr_pieza || 1)) * (Number(i.total_unidades_compradas) || 0), 0) / totalUnits;
+    return weightedPxml * qty;
+  }
+  const avgPxml = matches.reduce((s, i) => s + (i.precio_x_ml || (i.precio_promedio / (i.ml_gr_pieza || 1))), 0) / matches.length;
+  return avgPxml * qty;
 };
 
 const RecipesPage = () => {
@@ -139,27 +144,32 @@ const RecipesPage = () => {
   }, [inventory]);
 
   const recipesWithCosts = useMemo(() => {
+    const mezclaNames = new Set(mezclas.map(m => m.nombre_generico.toLowerCase()));
     return recipes.map(recipe => {
       const total = recipe.receta_componentes?.reduce((acc, c) => {
-        const isGeneric = !c.insumo_id && !!c.insumo_nombre_manual;
+        const hasManual = !c.insumo_id && !!c.insumo_nombre_manual;
+        const isMezcla  = hasManual && mezclaNames.has(c.insumo_nombre_manual?.toLowerCase());
+        const isGeneric = hasManual && !isMezcla && !c.tipo_insumo;
         const normalizedComp = {
           is_generic: isGeneric,
-          insumo_id: c.insumo_id,
-          tipo_insumo: isGeneric ? c.insumo_nombre_manual : '',
-          cantidad: c.cantidad
+          is_mezcla:  isMezcla,
+          tipo_insumo: isGeneric ? c.insumo_nombre_manual : (c.tipo_insumo || ''),
+          marca:       c.marca || '',
+          insumo_nombre_manual: c.insumo_nombre_manual,
+          cantidad:    c.cantidad
         };
         return acc + calcComponentCost(normalizedComp, inventory, genericOptions, mezclas);
       }, 0) || 0;
       return { ...recipe, dynamic_cost: total };
     });
-  }, [recipes, inventory, genericOptions]);
+  }, [recipes, inventory, genericOptions, mezclas]);
 
   const fetchRecipes = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('recetas_base')
-        .select('*, receta_componentes (*, insumos (tipo_insumo, marca, presentacion, precio_promedio, ml_gr_pieza, precio_x_ml))')
+        .select('*, receta_componentes (*, insumos (tipo_insumo, marca, presentacion, precio_promedio, ml_gr_pieza, precio_x_ml, total_unidades_compradas))')
         .order('nombre');
       if (error) throw error;
       setRecipes(data || []);
@@ -202,14 +212,16 @@ const RecipesPage = () => {
       setEditorData({
         id: recipe.id, nombre: recipe.nombre, categoria: recipe.categoria,
         componentes: recipe.receta_componentes?.map(c => {
-          const isGeneric = !c.insumo_id && !!c.insumo_nombre_manual;
-          const isMezcla  = isGeneric && mezclaNames.has(c.insumo_nombre_manual?.toLowerCase());
+          const hasManual = !c.insumo_id && !!c.insumo_nombre_manual && !c.tipo_insumo;
+          const isMezcla  = hasManual && mezclaNames.has(c.insumo_nombre_manual?.toLowerCase());
+          const isGeneric = hasManual && !isMezcla;
+          const isEspec   = !!(c.tipo_insumo && c.marca) || !!c.insumo_id;
           return {
             id: c.id,
-            insumo_id: c.insumo_id || '',
-            tipo_insumo: (isGeneric && !isMezcla) ? c.insumo_nombre_manual : '',
+            tipo_insumo: isEspec ? (c.tipo_insumo || c.insumos?.tipo_insumo || '') : (isGeneric ? c.insumo_nombre_manual : ''),
+            marca:       isEspec ? (c.marca || c.insumos?.marca || '') : '',
             insumo_nombre_manual: isMezcla ? c.insumo_nombre_manual : '',
-            is_generic: isGeneric && !isMezcla,
+            is_generic: isGeneric,
             is_mezcla:  isMezcla,
             cantidad: c.cantidad,
             unidad: c.unidad
@@ -228,7 +240,7 @@ const RecipesPage = () => {
     setEditorData(prev => ({ 
       ...prev, 
       componentes: [...prev.componentes, {
-        insumo_id: '', tipo_insumo: '', insumo_nombre_manual: '',
+        tipo_insumo: '', marca: '', insumo_nombre_manual: '',
         is_generic: false, is_mezcla: false,
         cantidad: '', unidad: 'Ml/Gr/Pza'
       }]
@@ -241,23 +253,26 @@ const RecipesPage = () => {
 
   const handleUpdateComponent = (idx, field, value) => {
     const newComps = [...editorData.componentes];
-    newComps[idx][field] = value;
-    
-    if (field === 'insumo_id' && !newComps[idx].is_generic) {
-      const insumo = inventory.find(i => i.id === value);
-      if (insumo) newComps[idx].unidad = 'Ml/Gr/Pza';
+
+    if (field === 'brand_key') {
+      const [tipo, marca] = value.split('|||');
+      newComps[idx].tipo_insumo = tipo || '';
+      newComps[idx].marca = marca || '';
+      setEditorData({ ...editorData, componentes: newComps });
+      return;
     }
+
+    newComps[idx][field] = value;
 
     if (field === 'is_generic') {
       newComps[idx].is_mezcla = false;
       newComps[idx].insumo_nombre_manual = '';
-      if (value) { newComps[idx].insumo_id = ''; }
-      else { newComps[idx].tipo_insumo = ''; }
+      if (!value) { newComps[idx].tipo_insumo = ''; newComps[idx].marca = ''; }
     }
     if (field === 'is_mezcla') {
       newComps[idx].is_generic = false;
-      newComps[idx].insumo_id = '';
       newComps[idx].tipo_insumo = '';
+      newComps[idx].marca = '';
       if (!value) newComps[idx].insumo_nombre_manual = '';
     }
 
@@ -297,11 +312,13 @@ const RecipesPage = () => {
       if (editorData.id) await supabase.from('receta_componentes').delete().eq('receta_id', recipeId);
 
       const finalComponents = componentsToSave.map(c => ({
-        receta_id: recipeId, 
-        insumo_id: c.insumo_id, 
-        insumo_nombre_manual: c.insumo_nombre_manual,
+        receta_id: recipeId,
+        insumo_id: null,
+        insumo_nombre_manual: c.insumo_nombre_manual || null,
+        tipo_insumo: (!c.is_generic && !c.is_mezcla) ? (c.tipo_insumo || null) : null,
+        marca:       (!c.is_generic && !c.is_mezcla) ? (c.marca || null) : null,
         cantidad: c.cantidad,
-        unidad: c.unidad, 
+        unidad: c.unidad,
         costo_proporcional: c.costo_proporcional
       }));
 
@@ -450,10 +467,14 @@ const RecipesPage = () => {
 
                     <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
                           {selectedRecipe.receta_componentes?.map((item, idx) => {
-                            const isGeneric = !item.insumo_id && !!item.insumo_nombre_manual;
+                            const hasManual = !item.insumo_id && !!item.insumo_nombre_manual;
+                            const isMezclaItem = hasManual && mezclas.some(m => m.nombre_generico.toLowerCase() === item.insumo_nombre_manual?.toLowerCase());
+                            const isGeneric = hasManual && !isMezclaItem && !item.tipo_insumo;
                             const normalizedComp = {
                               is_generic: isGeneric,
-                              insumo_id: item.insumo_id,
+                              is_mezcla:  isMezclaItem,
+                              tipo_insumo: item.tipo_insumo || (isGeneric ? item.insumo_nombre_manual : ''),
+                              marca:       item.marca || '',
                               insumo_nombre_manual: item.insumo_nombre_manual,
                               cantidad: item.cantidad
                             };
@@ -467,7 +488,7 @@ const RecipesPage = () => {
                                   </div>
                                   <div>
                                     <div className="font-black text-sm text-white">
-                                      {item.insumo_nombre_manual || (item.insumos ? `${item.insumos.marca} (${item.insumos.presentacion})` : 'Insumo')}
+                                      {item.insumo_nombre_manual || (item.tipo_insumo && item.marca ? `${item.tipo_insumo} — ${item.marca}` : item.insumos ? `${item.insumos.tipo_insumo} — ${item.insumos.marca}` : 'Insumo')}
                                     </div>
                                     <div className="text-xs text-slate-500 font-bold">{item.cantidad} {item.unidad}</div>
                                     {isGeneric && (() => {
@@ -551,10 +572,12 @@ const RecipesPage = () => {
                           {editorData.componentes.map((comp, idx) => {
                             const cost = calcComponentCost(comp, inventory, genericOptions);
 
-                            const inventoryOptions = inventory.map(i => ({
-                              value: i.id,
-                              label: `${i.marca} (${i.presentacion}) — $${i.precio_promedio}`
-                            }));
+                            const seenBrands = new Set();
+                            const brandOptions = inventory.reduce((acc, i) => {
+                              const key = `${i.tipo_insumo}|||${i.marca}`;
+                              if (!seenBrands.has(key)) { seenBrands.add(key); acc.push({ value: key, label: `${i.tipo_insumo} — ${i.marca}` }); }
+                              return acc;
+                            }, []);
 
                             const mezclaNames = [...new Set(mezclas.map(m => m.nombre_generico))];
                             const mezclaOptions = mezclaNames.map(n => ({ value: n, label: n }));
@@ -578,7 +601,7 @@ const RecipesPage = () => {
                                         if (btn.key === 'mezcla')   handleUpdateComponent(idx, 'is_mezcla', true);
                                         if (btn.key === 'specific') {
                                           const newC = [...editorData.componentes];
-                                          newC[idx] = { ...newC[idx], is_generic: false, is_mezcla: false, tipo_insumo: '', insumo_nombre_manual: '' };
+                                          newC[idx] = { ...newC[idx], is_generic: false, is_mezcla: false, tipo_insumo: '', marca: '', insumo_nombre_manual: '' };
                                           setEditorData(p => ({ ...p, componentes: newC }));
                                         }
                                       }}
@@ -611,9 +634,9 @@ const RecipesPage = () => {
                                       />
                                     ) : (
                                       <SearchableSelect
-                                        options={inventoryOptions}
-                                        value={comp.insumo_id}
-                                        onChange={(val) => handleUpdateComponent(idx, 'insumo_id', val)}
+                                        options={brandOptions}
+                                        value={comp.tipo_insumo && comp.marca ? `${comp.tipo_insumo}|||${comp.marca}` : ''}
+                                        onChange={(val) => handleUpdateComponent(idx, 'brand_key', val)}
                                         placeholder="Buscar insumo..."
                                       />
                                     )}
