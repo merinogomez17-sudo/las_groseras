@@ -27,6 +27,13 @@ const calcComponentCost = (comp, inventory, genericOptions) => {
   }
 };
 
+const deriveUnidad = (presentacion = '', tipoInsumo = '', compUnidad = '') => {
+  const text = `${presentacion} ${tipoInsumo} ${compUnidad}`.toLowerCase();
+  if (text.includes('gr') || text.includes('kg') || text.includes('g ')) return 'gr';
+  if (text.includes('pieza') || text.includes('pza') || text.includes('pz')) return 'pza';
+  return 'ml'; // default líquidos
+};
+
 const EventsPage = () => {
   const [events, setEvents]                     = useState([]);
   const [loading, setLoading]                   = useState(true);
@@ -461,7 +468,7 @@ const EventsPage = () => {
                     insumo_id: insumoId,
                     necesitas: 0,
                     en_inventario: inv?.cantidad_actual || 0,
-                    unidad: ins?.presentacion || inv?.unidad || 'ML',
+                    unidad: deriveUnidad(ins?.presentacion, ins?.tipo_insumo, comp?.unidad),
                     precio_x_ml: ins?.precio_x_ml || 0,
                     is_generic: false,
                     desglosado_de: comp.insumo_nombre_manual
@@ -484,7 +491,7 @@ const EventsPage = () => {
                 necesitas: 0,
                 en_inventario: 0,
                 a_comprar: 0,
-                unidad: comp.unidad || 'Pzas',
+                unidad: deriveUnidad('', '', comp.unidad),
                 is_generic: true,
                 precio_x_ml: precioPromedio,
                 sin_mezcla: true
@@ -504,7 +511,7 @@ const EventsPage = () => {
                 insumo_id: key,
                 necesitas: 0,
                 en_inventario: inv?.cantidad_actual || 0,
-                unidad: insumo?.presentacion || inv?.unidad || comp.unidad || 'Pzas',
+                unidad: deriveUnidad(insumo?.presentacion, insumo?.tipo_insumo, comp?.unidad),
                 proveedor: inv?.proveedor || 'N/A',
                 precio_x_ml: insumo?.precio_x_ml || 0,
                 is_generic: false

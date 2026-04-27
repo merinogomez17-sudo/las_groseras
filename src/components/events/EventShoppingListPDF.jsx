@@ -167,6 +167,15 @@ const styles = StyleSheet.create({
   }
 });
 
+// Función helper para normalizar unidad
+const normalizeUnidad = (unidad) => {
+  if (!unidad) return 'ml';
+  const u = unidad.toLowerCase();
+  if (u.includes('gr') || u.includes('g')) return 'gr';
+  if (u.includes('pieza') || u.includes('pza') || u.includes('pz')) return 'pza';
+  return 'ml'; // default para líquidos
+};
+
 const EventShoppingListPDF = ({ event, items, recipes = [] }) => {
   const specificItems = items.filter(i => !i.is_generic);
   const genericItems  = items.filter(i => i.is_generic);
@@ -248,14 +257,14 @@ const EventShoppingListPDF = ({ event, items, recipes = [] }) => {
                     )}
                   </View>
                   <View style={styles.colQty}>
-                    <Text style={styles.cellQty}>{item.necesitas.toFixed(1)}</Text>
+                    <Text style={styles.cellQty}>{item.necesitas.toFixed(1)} {normalizeUnidad(item.unidad)}</Text>
                   </View>
                   <View style={styles.colStock}>
-                    <Text style={styles.cellText}>{item.en_inventario.toFixed(1)}</Text>
+                    <Text style={styles.cellText}>{item.en_inventario.toFixed(1)} {normalizeUnidad(item.unidad)}</Text>
                   </View>
                   <View style={styles.colBuy}>
                     <Text style={[styles.cellQty, item.a_comprar > 0 ? styles.cellBuy : {}]}>
-                      {item.a_comprar.toFixed(1)}
+                      {item.a_comprar.toFixed(1)} {normalizeUnidad(item.unidad)}
                     </Text>
                   </View>
                   <View style={styles.colCost}>
@@ -292,10 +301,10 @@ const EventShoppingListPDF = ({ event, items, recipes = [] }) => {
                     )}
                   </View>
                   <View style={styles.colQty}>
-                    <Text style={styles.cellQty}>{item.necesitas.toFixed(1)}</Text>
+                    <Text style={styles.cellQty}>{item.necesitas.toFixed(1)} {normalizeUnidad(item.unidad)}</Text>
                   </View>
                   <View style={styles.colStock}>
-                    <Text style={styles.cellText}>{item.unidad}</Text>
+                    <Text style={styles.cellText}>{normalizeUnidad(item.unidad)}</Text>
                   </View>
                   <View style={styles.colCost}>
                     <Text style={styles.cellCost}>
