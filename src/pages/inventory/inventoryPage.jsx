@@ -76,11 +76,40 @@ const InventoryPage = () => {
     fecha_compra: new Date().toISOString().split('T')[0]
   });
   const [savingCompra, setSavingCompra]       = useState(false);
+  const [dropdownPos, setDropdownPos]         = useState({ top: 0, left: 0, width: 0 });
+  const panelInsumoRef = useRef(null);
+
+  const handleSearchFocus = (ref) => {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width
+      });
+    }
+  };
 
   // Quick stock (agregar stock existente sin compra)
   const [quickSearch, setQuickSearch]         = useState('');
   const [quickItem, setQuickItem]             = useState(null);
   const [quickQty, setQuickQty]               = useState('');
+
+  const panelScrollRef = useRef(null);
+
+  useEffect(() => {
+    const container = panelScrollRef.current;
+    const closeDropdowns = () => {
+      if (panelInsumoSearch.length >= 2) setPanelInsumoSearch('');
+      if (quickSearch.length >= 2) setQuickSearch('');
+    };
+    if (container) container.addEventListener('scroll', closeDropdowns, { passive: true });
+    window.addEventListener('scroll', closeDropdowns, { passive: true });
+    return () => {
+      if (container) container.removeEventListener('scroll', closeDropdowns);
+      window.removeEventListener('scroll', closeDropdowns);
+    };
+  }, [panel, panelInsumoSearch, quickSearch]);
 
   useEffect(() => {
     fetchInventory();
@@ -266,22 +295,20 @@ const InventoryPage = () => {
   const panelInsumoResults = useMemo(() => {
     if (!panelInsumoSearch || panelInsumoSearch.length < 2 || panelInsumoSelected) return [];
     const q = panelInsumoSearch.toLowerCase();
-    return insumos.filter(i =>
-      i.marca.toLowerCase().includes(q) ||
-      i.tipo_insumo.toLowerCase().includes(q) ||
-      i.presentacion.toLowerCase().includes(q)
-    ).slice(0, 6);
+    return insumos.filter(i => {
+      const fullText = `${i.marca} ${i.tipo_insumo} ${i.presentacion}`.toLowerCase();
+      return q.split(' ').every(word => fullText.includes(word));
+    }).slice(0, 15);
   }, [panelInsumoSearch, panelInsumoSelected, insumos]);
 
   // ── Registrar Compra ─────────────────────────────────────────
   const searchResults = useMemo(() => {
     if (!compraSearch || compraSearch.length < 2) return [];
     const q = compraSearch.toLowerCase();
-    return insumos.filter(i =>
-      i.marca.toLowerCase().includes(q) ||
-      i.tipo_insumo.toLowerCase().includes(q) ||
-      i.presentacion.toLowerCase().includes(q)
-    ).slice(0, 8);
+    return insumos.filter(i => {
+      const fullText = `${i.marca} ${i.tipo_insumo} ${i.presentacion}`.toLowerCase();
+      return q.split(' ').every(word => fullText.includes(word));
+    }).slice(0, 15);
   }, [compraSearch, insumos]);
 
   const handleSaveNewInsumo = async (e) => {
@@ -729,6 +756,7 @@ const InventoryPage = () => {
               {panel === PANEL.FORM && (
                 <motion.div
                   initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+                  ref={panelScrollRef}
                   className="w-96 glass border-white/5 p-6 shrink-0 sticky top-6 max-h-[calc(100vh-6rem)] overflow-y-auto custom-scrollbar"
                 >
                   <button onClick={closePanel} className="absolute right-4 top-4 text-slate-500 hover:text-white"><X size={18}/></button>
@@ -753,11 +781,19 @@ const InventoryPage = () => {
                         <div className="relative">
                           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                           <input type="text" placeholder="Buscar en catálogo (opcional)..."
+                            ref={panelInsumoRef}
                             className="input-field text-sm pl-9"
                             value={panelInsumoSearch}
-                            onChange={e => setPanelInsumoSearch(e.target.value)} />
-                          {panelInsumoResults.length > 0 && (
-                            <div className="absolute z-10 top-full mt-1 w-full rounded-xl border border-white/10 bg-slate-900/95 overflow-hidden shadow-2xl">
+                            onFocus={() => handleSearchFocus(panelInsumoRef)}
+                            onChange={e => { setPanelInsumoSearch(e.target.value); handleSearchFocus(panelInsumoRef); }} />
+                          {panelInsumoResults.length > 0 && createPortal(
+                            <div style={{
+                              position: 'fixed',
+                              top: dropdownPos.top,
+                              left: dropdownPos.left,
+                              width: dropdownPos.width,
+                              zIndex: 9999,
+                            }} className="rounded-xl border border-white/10 bg-slate-900 overflow-hidden shadow-2xl">
                               {panelInsumoResults.map(i => (
                                 <button key={i.id} type="button"
                                   onClick={() => { setPanelInsumoSelected(i); setPanelInsumoSearch(`${i.marca} — ${i.presentacion}`); setFormData(p => ({ ...p, insumo_id: i.id, categoria: i.tipo_insumo, precio_unitario: p.precio_unitario || i.precio_promedio })); }}
@@ -769,7 +805,8 @@ const InventoryPage = () => {
                                   <span className="text-xs font-black text-emerald-400">${fmt(i.precio_promedio)}</span>
                                 </button>
                               ))}
-                            </div>
+                            </div>,
+                            document.body
                           )}
                         </div>
                       )}
@@ -822,6 +859,7 @@ const InventoryPage = () => {
               {panel === PANEL.QUICK_STOCK && (
                 <motion.div
                   initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+                  ref={panelScrollRef}
                   className="w-96 glass border-white/5 p-6 shrink-0 sticky top-6 max-h-[calc(100vh-6rem)] overflow-y-auto custom-scrollbar"
                 >
                   <button onClick={closePanel} className="absolute right-4 top-4 text-slate-500 hover:text-white"><X size={18}/></button>
@@ -844,27 +882,30 @@ const InventoryPage = () => {
                             className="text-slate-500 hover:text-white p-1"><X size={14}/></button>
                         </div>
                       ) : (
-                        <div className="relative" ref={quickSearchRef}>
+                        <div className="relative">
                           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                           <input
                             autoFocus
+                            ref={quickSearchRef}
                             type="text" placeholder="Buscar insumo..."
                             className="input-field pl-9 text-sm"
                             value={quickSearch}
-                            onChange={e => setQuickSearch(e.target.value)}
+                            onFocus={() => handleSearchFocus(quickSearchRef)}
+                            onChange={e => { setQuickSearch(e.target.value); handleSearchFocus(quickSearchRef); }}
                           />
                           {quickSearch.length >= 2 && quickSearchRef.current && createPortal(
                             <div style={{
                               position: 'fixed',
-                              top: quickSearchRef.current.getBoundingClientRect().bottom + 4,
-                              left: quickSearchRef.current.getBoundingClientRect().left,
-                              width: quickSearchRef.current.getBoundingClientRect().width,
+                              top: dropdownPos.top,
+                              left: dropdownPos.left,
+                              width: dropdownPos.width,
                               zIndex: 9999,
                             }} className="rounded-xl border border-white/10 overflow-hidden bg-slate-900 shadow-2xl">
                               {insumos.filter(i => {
                                 const q = quickSearch.toLowerCase();
-                                return `${i.marca} ${i.tipo_insumo} ${i.presentacion}`.toLowerCase().includes(q);
-                              }).slice(0, 7).map(i => (
+                                const fullText = `${i.marca} ${i.tipo_insumo} ${i.presentacion}`.toLowerCase();
+                                return q.split(' ').every(word => fullText.includes(word));
+                              }).slice(0, 15).map(i => (
                                 <button key={i.id} type="button"
                                   onClick={() => { setQuickItem(i); setQuickSearch(`${i.marca} — ${i.presentacion}`); }}
                                   className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors text-left border-b border-white/5"
@@ -876,7 +917,11 @@ const InventoryPage = () => {
                                   <span className="text-xs font-black text-emerald-400">${fmt(i.precio_promedio)}</span>
                                 </button>
                               ))}
-                              {insumos.filter(i => `${i.marca} ${i.tipo_insumo} ${i.presentacion}`.toLowerCase().includes(quickSearch.toLowerCase())).length === 0 && (
+                              {insumos.filter(i => {
+                                const q = quickSearch.toLowerCase();
+                                const fullText = `${i.marca} ${i.tipo_insumo} ${i.presentacion}`.toLowerCase();
+                                return q.split(' ').every(word => fullText.includes(word));
+                              }).length === 0 && (
                                 <p className="px-4 py-3 text-xs text-slate-500 italic">Sin resultados</p>
                               )}
                               <button type="button"
@@ -959,21 +1004,23 @@ const InventoryPage = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="relative" ref={compraSearchRef}>
+                  <div className="relative">
                     <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       autoFocus
+                      ref={compraSearchRef}
                       type="text" placeholder="Buscar por marca, tipo o presentación..."
                       className="input-field pl-12"
                       value={compraSearch}
-                      onChange={e => setCompraSearch(e.target.value)}
+                      onFocus={() => handleSearchFocus(compraSearchRef)}
+                      onChange={e => { setCompraSearch(e.target.value); handleSearchFocus(compraSearchRef); }}
                     />
                     {compraSearch.length >= 2 && compraSearchRef.current && createPortal(
                       <div style={{
                         position: 'fixed',
-                        top: compraSearchRef.current.getBoundingClientRect().bottom + 4,
-                        left: compraSearchRef.current.getBoundingClientRect().left,
-                        width: compraSearchRef.current.getBoundingClientRect().width,
+                        top: dropdownPos.top,
+                        left: dropdownPos.left,
+                        width: dropdownPos.width,
                         zIndex: 9999,
                       }} className="rounded-2xl border border-white/10 overflow-hidden bg-slate-900 shadow-2xl">
                         {searchResults.map(item => (
