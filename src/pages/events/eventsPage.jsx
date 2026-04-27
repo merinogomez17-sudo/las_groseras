@@ -15,16 +15,20 @@ import EventShoppingListPDF from '../../components/events/EventShoppingListPDF';
 
 const calcComponentCost = (comp, inventory, genericOptions) => {
   const qty = parseFloat(comp.cantidad) || 0;
+  if (comp.is_mezcla) return 0;
   if (comp.is_generic) {
     const gen = genericOptions.find(g => g.value === (comp.tipo_insumo || comp.insumo_nombre_manual));
     return gen ? (gen.avgPrice * qty) : 0;
-  } else {
-    const insumo = inventory.find(i => i.id === comp.insumo_id);
-    if (!insumo) return 0;
-    return insumo.precio_x_ml 
-      ? (insumo.precio_x_ml * qty) 
-      : ((insumo.precio_promedio / (insumo.ml_gr_pieza || 1)) * qty);
   }
+  const matches = inventory.filter(i => i.tipo_insumo === comp.tipo_insumo && i.marca === comp.marca);
+  if (!matches.length) return 0;
+  const totalUnits = matches.reduce((s, i) => s + (Number(i.total_unidades_compradas) || 0), 0);
+  if (totalUnits > 0) {
+    const wPxml = matches.reduce((s, i) => s + (i.precio_promedio / (i.ml_gr_pieza || 1)) * (Number(i.total_unidades_compradas) || 0), 0) / totalUnits;
+    return wPxml * qty;
+  }
+  const avgPxml = matches.reduce((s, i) => s + (i.precio_x_ml || (i.precio_promedio / (i.ml_gr_pieza || 1))), 0) / matches.length;
+  return avgPxml * qty;
 };
 
 const deriveUnidad = (presentacion = '', tipoInsumo = '', compUnidad = '') => {
@@ -111,13 +115,17 @@ const EventsPage = () => {
       }));
 
       // Calcular costo dinámico para cada receta
+      const mezclaNames = new Set((await supabase.from('insumo_mezclas').select('nombre_generico')).data?.map(m => m.nombre_generico.toLowerCase()) || []);
       const recipesWithCosts = (recipesData || []).map(recipe => {
         const total = recipe.receta_componentes?.reduce((acc, c) => {
-          const isGeneric = !c.insumo_id && !!c.insumo_nombre_manual;
+          const hasManual = !c.insumo_id && !!c.insumo_nombre_manual;
+          const isMezcla  = hasManual && mezclaNames.has(c.insumo_nombre_manual?.toLowerCase());
+          const isGeneric = hasManual && !isMezcla && !c.tipo_insumo;
           const normalizedComp = {
-            is_generic: isGeneric,
-            insumo_id: c.insumo_id,
-            tipo_insumo: isGeneric ? c.insumo_nombre_manual : '',
+            is_generic: isGeneric, is_mezcla: isMezcla,
+            tipo_insumo: c.tipo_insumo || (isGeneric ? c.insumo_nombre_manual : ''),
+            marca: c.marca || '',
+            insumo_nombre_manual: c.insumo_nombre_manual,
             cantidad: c.cantidad
           };
           return acc + calcComponentCost(normalizedComp, inv, genericOptions);
@@ -417,115 +425,77 @@ const EventsPage = () => {
   const calculateShoppingList = async (eventId) => {
     setIsCalculatingList(true);
     try {
-      // Fetch data completa para el cálculo
       const { data: selection } = await supabase
         .from('evento_productos')
-        .select(`
-          id,
-          cantidad,
-          recetas_base (
-            nombre, 
-            receta_componentes (
-              insumo_id, 
-              insumo_nombre_manual, 
-              cantidad, 
-              unidad
-            )
-          )
-        `)
+        .select(`id, cantidad, recetas_base (nombre, receta_componentes (insumo_id, insumo_nombre_manual, tipo_insumo, marca, cantidad, unidad))`)
         .eq('evento_id', eventId);
 
-      // Fetch inventario, insumos y MEZCLAS
-      const { data: inventoryData } = await supabase.from('inventario').select('*');
+      const { data: inventoryData } = await supabase
+        .from('inventario').select('*, insumos(id, tipo_insumo, marca, ml_gr_pieza, presentacion)');
       const { data: insumosData } = await supabase.from('insumos').select('*');
       const { data: mezclasData } = await supabase
         .from('insumo_mezclas')
-        .select('*, insumos(id, marca, tipo_insumo, precio_x_ml, ml_gr_pieza)')
+        .select('*, insumos(id, marca, tipo_insumo, ml_gr_pieza, precio_x_ml)')
         .order('nombre_generico');
 
       const totals = {};
+      const addToTotals = (key, data, qty) => {
+        if (!totals[key]) totals[key] = { ...data, necesitas_base: 0 };
+        totals[key].necesitas_base += qty;
+      };
+
       selection.forEach(p => {
-        const recipePortions = p.cantidad || 0;
-        p.recetas_base.receta_componentes.forEach(comp => {
-          const isGeneric = !comp.insumo_id;
-          
-          if (isGeneric) {
-            // Buscar si tiene mezcla definida
-            const mixtures = mezclasData?.filter(m => m.nombre_generico.toLowerCase() === comp.insumo_nombre_manual?.toLowerCase());
-            
-            if (mixtures && mixtures.length > 0) {
-              const totalMezcla = mixtures.reduce((sum, m) => sum + Number(m.cantidad), 0);
-              mixtures.forEach(m => {
-                const insumoId = m.insumo_id;
-                const proporcion = Number(m.cantidad) / totalMezcla;
-                const qtyDesglosada = comp.cantidad * recipePortions * proporcion;
-                
-                if (!totals[insumoId]) {
-                  const ins = insumosData?.find(i => i.id === insumoId);
-                  const inv = inventoryData?.find(i => i.insumo_id === insumoId);
-                  totals[insumoId] = {
-                    nombre: ins?.marca || 'Desconocido',
-                    insumo_id: insumoId,
-                    necesitas: 0,
-                    en_inventario: inv?.cantidad_actual || 0,
-                    unidad: deriveUnidad(ins?.presentacion, ins?.tipo_insumo, comp?.unidad),
-                    precio_x_ml: ins?.precio_x_ml || 0,
-                    is_generic: false,
-                    desglosado_de: comp.insumo_nombre_manual
-                  };
-                }
-                totals[insumoId].necesitas += qtyDesglosada;
-              });
-              return; // Pasar al siguiente componente
-            }
-            
-            // Si NO tiene mezcla, tratar como genérico normal
-            const key = `gen_${comp.insumo_nombre_manual}`;
-            if (!totals[key]) {
-              const precioPromedio = insumosData
-                ?.filter(i => i.tipo_insumo?.toLowerCase() === comp.insumo_nombre_manual?.toLowerCase())
-                .reduce((sum, i, _, arr) => sum + ((i.precio_x_ml || 0) / arr.length), 0) || 0;
+        const porciones = p.cantidad || 0;
+        p.recetas_base?.receta_componentes?.forEach(comp => {
+          const qtyBase = (parseFloat(comp.cantidad) || 0) * porciones;
+          const isEspec   = !!(comp.tipo_insumo && comp.marca);
+          const hasManual = !!comp.insumo_nombre_manual;
+          const isMezcla  = hasManual && !isEspec && mezclasData?.some(m => m.nombre_generico.toLowerCase() === comp.insumo_nombre_manual?.toLowerCase());
+          const isGeneric = hasManual && !isEspec && !isMezcla;
 
-              totals[key] = {
-                nombre: comp.insumo_nombre_manual,
-                necesitas: 0,
-                en_inventario: 0,
-                a_comprar: 0,
-                unidad: deriveUnidad('', '', comp.unidad),
-                is_generic: true,
-                precio_x_ml: precioPromedio,
-                sin_mezcla: true
-              };
-            }
-            totals[key].necesitas += comp.cantidad * recipePortions;
-            
-          } else {
-            // Item específico
-            const key = comp.insumo_id;
-            if (!totals[key]) {
-              const insumo = insumosData?.find(i => i.id === comp.insumo_id);
-              const inv = inventoryData?.find(i => i.insumo_id === comp.insumo_id);
-
-              totals[key] = {
-                nombre: insumo?.marca || 'Desconocido',
-                insumo_id: key,
-                necesitas: 0,
-                en_inventario: inv?.cantidad_actual || 0,
-                unidad: deriveUnidad(insumo?.presentacion, insumo?.tipo_insumo, comp?.unidad),
-                proveedor: inv?.proveedor || 'N/A',
-                precio_x_ml: insumo?.precio_x_ml || 0,
-                is_generic: false
-              };
-            }
-            totals[key].necesitas += comp.cantidad * recipePortions;
+          if (isMezcla) {
+            const mixtures = mezclasData.filter(m => m.nombre_generico.toLowerCase() === comp.insumo_nombre_manual.toLowerCase());
+            const totalMezcla = mixtures.reduce((s, m) => s + Number(m.cantidad), 0);
+            mixtures.forEach(m => {
+              const ins = m.insumos;
+              if (!ins) return;
+              const key = `${ins.tipo_insumo}|||${ins.marca}`;
+              addToTotals(key, { tipo_insumo: ins.tipo_insumo, marca: ins.marca, is_generic: false, desglosado_de: comp.insumo_nombre_manual }, qtyBase * (Number(m.cantidad) / totalMezcla));
+            });
+          } else if (isEspec) {
+            addToTotals(`${comp.tipo_insumo}|||${comp.marca}`, { tipo_insumo: comp.tipo_insumo, marca: comp.marca, is_generic: false }, qtyBase);
+          } else if (isGeneric) {
+            addToTotals(`gen_${comp.insumo_nombre_manual}`, { nombre: comp.insumo_nombre_manual, is_generic: true, unidad: comp.unidad || 'ml/gr' }, qtyBase);
           }
         });
       });
 
-      const finalItems = Object.values(totals).map(item => ({
-        ...item,
-        a_comprar: item.is_generic ? item.necesitas : Math.max(0, item.necesitas - item.en_inventario)
-      }));
+      const finalItems = Object.values(totals).map(item => {
+        if (item.is_generic) {
+          return { nombre: item.nombre, necesitas: item.necesitas_base, en_inventario: 0, a_comprar: item.necesitas_base, unidad: item.unidad, is_generic: true };
+        }
+        const matchingInsumos = insumosData.filter(i => i.tipo_insumo === item.tipo_insumo && i.marca === item.marca);
+        let stockBase = 0;
+        matchingInsumos.forEach(ins => {
+          inventoryData.filter(i => i.insumo_id === ins.id).forEach(inv => {
+            stockBase += Number(inv.cantidad_actual) * Number(ins.ml_gr_pieza || 1);
+          });
+        });
+        const faltanteBase = Math.max(0, item.necesitas_base - stockBase);
+        const bestIns = matchingInsumos.sort((a, b) => Number(a.ml_gr_pieza) - Number(b.ml_gr_pieza))[0];
+        const mlPorPieza = Number(bestIns?.ml_gr_pieza) || 1;
+        const aComprarPiezas = faltanteBase > 0 ? Math.ceil(faltanteBase / mlPorPieza) : 0;
+        const precioXPieza = bestIns?.precio_promedio || 0;
+        return {
+          nombre: item.marca, tipo_insumo: item.tipo_insumo,
+          necesitas: item.necesitas_base, en_inventario: stockBase,
+          a_comprar: aComprarPiezas, unidad: 'gr/ml',
+          unidad_compra: bestIns?.presentacion || 'unidad',
+          precio_x_pieza: precioXPieza,
+          costo_compra: aComprarPiezas * precioXPieza,
+          is_generic: false, desglosado_de: item.desglosado_de
+        };
+      });
 
       setShoppingListItems(finalItems);
       setShoppingStep('list');
@@ -1066,11 +1036,19 @@ const EventsPage = () => {
                           <tbody className="divide-y divide-white/5">
                             {shoppingListItems.filter(i => !i.is_generic).map((item, idx) => (
                               <tr key={idx} className="hover:bg-white/5 transition-colors">
-                                <td className="p-4 font-bold text-white">{item.nombre}</td>
-                                <td className="p-4 font-black text-center text-slate-400">{item.necesitas.toFixed(1)} {item.unidad}</td>
-                                <td className="p-4 font-black text-center text-slate-400">{item.en_inventario.toFixed(1)} {item.unidad}</td>
+                                <td className="p-4">
+                                  <div className="font-bold text-white">{item.nombre}</div>
+                                  {item.tipo_insumo && <div className="text-[9px] font-black text-slate-500 tracking-widest">{item.tipo_insumo}{item.desglosado_de ? ` · de ${item.desglosado_de}` : ''}</div>}
+                                </td>
+                                <td className="p-4 font-black text-center text-slate-400">{item.necesitas.toFixed(0)} <span className="text-slate-600 text-[10px]">{item.unidad}</span></td>
+                                <td className="p-4 font-black text-center text-slate-400">{item.en_inventario.toFixed(0)} <span className="text-slate-600 text-[10px]">{item.unidad}</span></td>
                                 <td className={`p-4 font-black text-center ${item.a_comprar > 0 ? 'text-brand-red bg-brand-red/5' : 'text-emerald-400'}`}>
-                                  {item.a_comprar > 0 ? item.a_comprar.toFixed(1) : 'OK'}
+                                  {item.a_comprar > 0 ? (
+                                    <div>
+                                      <div>{item.a_comprar} pzas</div>
+                                      <div className="text-[9px] font-bold text-brand-red/60">{item.unidad_compra}</div>
+                                    </div>
+                                  ) : 'OK'}
                                 </td>
                               </tr>
                             ))}
