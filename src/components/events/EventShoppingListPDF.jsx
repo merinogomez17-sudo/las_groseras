@@ -193,9 +193,7 @@ const EventShoppingListPDF = ({ event, items, recipes = [] }) => {
     }).format(amount || 0);
   };
 
-  const totalEstimated = items.reduce((acc, i) => acc + ((i.precio_x_ml || 0) * (i.necesitas || 0)), 0);
-  const inventoryValue = items.reduce((acc, i) => acc + ((i.precio_x_ml || 0) * (i.en_inventario || 0)), 0);
-  const investmentTotal = items.reduce((acc, i) => acc + ((i.precio_x_ml || 0) * (i.a_comprar || 0)), 0);
+  const investmentTotal = items.reduce((acc, i) => acc + (i.costo_compra || 0), 0);
 
   return (
     <Document title={`Lista de Compras - ${event.nombre_evento}`}>
@@ -257,19 +255,22 @@ const EventShoppingListPDF = ({ event, items, recipes = [] }) => {
                     )}
                   </View>
                   <View style={styles.colQty}>
-                    <Text style={styles.cellQty}>{item.necesitas.toFixed(1)} {normalizeUnidad(item.unidad)}</Text>
+                    <Text style={styles.cellQty}>{Number(item.necesitas).toFixed(1)} {normalizeUnidad(item.unidad)}</Text>
                   </View>
                   <View style={styles.colStock}>
-                    <Text style={styles.cellText}>{item.en_inventario.toFixed(1)} {normalizeUnidad(item.unidad)}</Text>
+                    <Text style={styles.cellText}>{Number(item.en_inventario).toFixed(1)} {normalizeUnidad(item.unidad)}</Text>
                   </View>
                   <View style={styles.colBuy}>
                     <Text style={[styles.cellQty, item.a_comprar > 0 ? styles.cellBuy : {}]}>
-                      {item.a_comprar.toFixed(1)} {normalizeUnidad(item.unidad)}
+                      {item.a_comprar > 0 ? `${item.a_comprar} pzas` : 'OK'}
                     </Text>
+                    {item.a_comprar > 0 && item.unidad_compra && (
+                      <Text style={styles.cellNote}>{item.unidad_compra}</Text>
+                    )}
                   </View>
                   <View style={styles.colCost}>
                     <Text style={styles.cellCost}>
-                      {formatCurrency((item.precio_x_ml || 0) * item.a_comprar)}
+                      {item.a_comprar > 0 ? formatCurrency(item.costo_compra || 0) : '—'}
                     </Text>
                   </View>
                 </View>
@@ -320,15 +321,7 @@ const EventShoppingListPDF = ({ event, items, recipes = [] }) => {
         {/* TOTALS SECTION */}
         <View style={styles.totalsContainer} wrap={false}>
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total estimado de consumo:</Text>
-            <Text style={styles.totalValue}>{formatCurrency(totalEstimated)}</Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Valor en inventario:</Text>
-            <Text style={styles.totalValue}>{formatCurrency(inventoryValue)}</Text>
-          </View>
-          <View style={[styles.totalRow, { borderTop: '0.5pt solid #e2e8f0', marginTop: 4, paddingTop: 4 }]}>
-            <Text style={[styles.totalLabel, { fontWeight: 'bold', color: '#1e293b' }]}>Total a invertir:</Text>
+            <Text style={[styles.totalLabel, { fontWeight: 'bold', color: '#1e293b' }]}>Total a invertir (costo aprox.):</Text>
             <Text style={[styles.totalValue, styles.totalToInvest]}>{formatCurrency(investmentTotal)}</Text>
           </View>
         </View>
