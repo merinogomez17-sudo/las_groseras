@@ -472,13 +472,21 @@ const InventoryPage = () => {
       (categoryFilter === 'Todas' || item.categoria === categoryFilter);
   });
 
+  const isPiezaBased = (ins, item) => {
+    const text = `${ins?.presentacion || ''} ${item?.unidad || ''}`.toLowerCase();
+    return text.includes('pieza') || text.includes('pza') || text.includes('pz');
+  };
+
   const groupedProducts = filteredItems.reduce((acc, item) => {
     const ins = item.insumos;
     const key = ins ? `${ins.tipo_insumo}|||${ins.marca}` : (item.producto_base || item.nombre);
     const displayName = ins ? ins.marca : (item.producto_base || item.nombre);
-    if (!acc[key]) acc[key] = { name: displayName, category: item.categoria, totalGr: 0, hasInsumoLink: !!ins, presentations: [], hasAlert: false };
+    const esPieza = isPiezaBased(ins, item);
+    if (!acc[key]) acc[key] = { name: displayName, category: item.categoria, totalGr: 0, hasInsumoLink: !!ins, esPieza, presentations: [], hasAlert: false };
     acc[key].presentations.push(item);
-    if (ins && ins.ml_gr_pieza) {
+    if (esPieza) {
+      acc[key].totalGr += Number(item.cantidad_actual);
+    } else if (ins && ins.ml_gr_pieza) {
       acc[key].totalGr += Number(item.cantidad_actual) * Number(ins.ml_gr_pieza);
     } else {
       acc[key].totalGr += Number(item.cantidad_actual);
@@ -682,7 +690,7 @@ const InventoryPage = () => {
                           <td className="px-6 py-5">
                             <div className={`text-base font-black tracking-tighter ${product.hasAlert ? 'text-brand-red flex items-center gap-1.5' : 'text-emerald-400'}`}>
                               {product.totalGr % 1 === 0 ? product.totalGr.toLocaleString('es-MX') : product.totalGr.toLocaleString('es-MX', { maximumFractionDigits: 1 })}
-                              <span className="opacity-50 lowercase ml-1">{product.hasInsumoLink ? 'gr/ml' : 'pzas'}</span>
+                              <span className="opacity-50 lowercase ml-1">{product.esPieza ? 'pzas' : (product.hasInsumoLink ? 'gr/ml' : 'pzas')}</span>
                               {product.hasAlert && <AlertTriangle size={13} className="animate-bounce" />}
                             </div>
                           </td>
