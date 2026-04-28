@@ -51,6 +51,8 @@ const QuotesPage = () => {
   const [previewItems, setPreviewItems]           = useState([]);
   const [previewNewItem, setPreviewNewItem]       = useState('');
   const [condiciones, setCondiciones]             = useState('Cotización válida por 15 días. Los precios incluyen montaje básico.');
+  const [adicionalesCustom, setAdicionalesCustom] = useState([]);
+  const [nuevoAdicional, setNuevoAdicional]       = useState({ nombre: '', precio: '' });
 
   useEffect(() => { fetchQuotes(); fetchLeads(); fetchAvgRecipeCost(); }, []);
 
@@ -114,14 +116,15 @@ const QuotesPage = () => {
     const precioBase       = fd.paquete_id === 'personalizada' ? Number(fd.precio_personalizado || 0) : pkg.precio_persona;
     const subtotalPaquete  = precioBase * fd.numero_personas;
     const subtotalExtras   = fd.servicios_adicionales.reduce((acc, curr) => acc + curr.precio, 0);
-    const subtotal         = (subtotalPaquete + subtotalExtras) - fd.descuento;
+    const subtotalCustom   = adicionalesCustom.reduce((acc, a) => acc + Number(a.precio), 0);
+    const subtotal         = (subtotalPaquete + subtotalExtras + subtotalCustom) - fd.descuento;
     return { subtotal, iva: 0, total: subtotal };
   };
 
   useEffect(() => {
     const totals = calculateTotal();
     if (totals) setFormData(prev => ({ ...prev, ...totals }));
-  }, [formData.paquete_id, formData.numero_personas, formData.descuento, formData.servicios_adicionales, formData.precio_personalizado]);
+  }, [formData.paquete_id, formData.numero_personas, formData.descuento, formData.servicios_adicionales, formData.precio_personalizado, adicionalesCustom]);
 
   useEffect(() => {
     if (formData.paquete_id !== 'personalizada' || !formData.personalizado_horas || selectedRecipesCustom.length === 0) {
@@ -181,6 +184,7 @@ const QuotesPage = () => {
         precio_por_persona: precioFinal,
         numero_cotizacion: `COT-${Date.now().toString().slice(-4)}`,
         notas: condiciones || dbData.notas,
+        adicionales_custom: adicionalesCustom.length > 0 ? adicionalesCustom : null,
         estado: 'borrador'
       };
 
@@ -608,6 +612,45 @@ const QuotesPage = () => {
                               className="btn-secondary px-3 py-2 shrink-0">
                               <Plus size={16} />
                             </button>
+                          </div>
+
+                          {/* ADICIONALES PERSONALIZADOS */}
+                          <h3 className="text-xs font-black text-brand-red tracking-widest flex items-center gap-2 pt-2">
+                            <PlusCircle size={14} /> Adicionales personalizados
+                          </h3>
+                          {adicionalesCustom.length > 0 && (
+                            <div className="space-y-1.5">
+                              {adicionalesCustom.map((a, idx) => (
+                                <div key={idx} className="flex items-center gap-2 bg-emerald-500/5 border border-emerald-500/20 px-3 py-2 rounded-xl">
+                                  <span className="flex-1 text-sm text-white font-medium">{a.nombre}</span>
+                                  <span className="text-emerald-400 font-black text-sm">${Number(a.precio).toLocaleString('es-MX')}</span>
+                                  <button type="button" onClick={() => setAdicionalesCustom(prev => prev.filter((_, i) => i !== idx))} className="text-slate-600 hover:text-brand-red transition-colors">
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <input type="text" className="input-field flex-1 py-2 text-sm bg-white/5 border-white/10"
+                              placeholder="Descripción del adicional"
+                              value={nuevoAdicional.nombre}
+                              onChange={(e) => setNuevoAdicional(prev => ({ ...prev, nombre: e.target.value }))} />
+                            <div className="flex items-center bg-white/5 border border-white/10 rounded-xl px-2 w-28 focus-within:border-brand-red transition-colors">
+                              <span className="text-slate-500 font-black text-sm">$</span>
+                              <input type="number" className="bg-transparent outline-none flex-1 text-white font-black text-sm w-full py-2 pl-1"
+                                placeholder="0"
+                                value={nuevoAdicional.precio}
+                                onChange={(e) => setNuevoAdicional(prev => ({ ...prev, precio: e.target.value }))} />
+                            </div>
+                            <button type="button"
+                              onClick={() => {
+                                if (nuevoAdicional.nombre.trim() && nuevoAdicional.precio) {
+                                  setAdicionalesCustom(prev => [...prev, { nombre: nuevoAdicional.nombre.trim(), precio: Number(nuevoAdicional.precio) }]);
+                                  setNuevoAdicional({ nombre: '', precio: '' });
+                                }
+                              }}
+                              className="btn-secondary px-3 py-2 shrink-0"><Plus size={16} /></button>
                           </div>
 
                           <h3 className="text-xs font-black text-brand-red tracking-widest flex items-center gap-2 pt-2">

@@ -227,14 +227,24 @@ const QuotePDF = ({ quote }) => {
           </View>
         </View>
 
+        {/* ADICIONALES PERSONALIZADOS */}
+        {quote.adicionales_custom && quote.adicionales_custom.length > 0 && (
+          <View style={{ marginTop: 20 }}>
+            <Text style={styles.sectionTitle}>Adicionales</Text>
+            {quote.adicionales_custom.map((a, idx) => (
+              <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderBottom: '0.5pt solid #f1f5f9' }}>
+                <Text style={{ fontSize: 10, color: '#334155' }}>{a.nombre}</Text>
+                <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#1e293b' }}>${Number(a.precio).toLocaleString('es-MX')}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* TERMS */}
-        <View style={{ marginTop: 40, padding: 15, backgroundColor: '#f8fafc', borderRadius: 10 }}>
+        <View style={{ marginTop: 30, padding: 15, backgroundColor: '#f8fafc', borderRadius: 10 }}>
            <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#1e293b', marginBottom: 5, textTransform: 'uppercase' }}>Condiciones Comerciales</Text>
            <Text style={{ fontSize: 8, color: '#64748b', lineHeight: 1.5 }}>
-             * Esta cotización tiene una validez hasta el {validUntilStr}.{'\n'}
-             * Reserva de fecha con el 50% de anticipo.{'\n'}
-             * Los precios incluyen montaje y servicio de barra libre según el tiempo estipulado.{'\n'}
-             * El precio no incluye IVA, si se solicita factura se cobrara el 16%.
+             {quote.notas || `* Esta cotización tiene una validez hasta el ${validUntilStr}.\n* Reserva de fecha con el 50% de anticipo.\n* Los precios incluyen montaje y servicio de barra libre según el tiempo estipulado.\n* El precio no incluye IVA, si se solicita factura se cobrara el 16%.`}
            </Text>
         </View>
 
