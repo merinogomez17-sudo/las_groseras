@@ -116,15 +116,14 @@ const QuotesPage = () => {
     const precioBase       = fd.paquete_id === 'personalizada' ? Number(fd.precio_personalizado || 0) : pkg.precio_persona;
     const subtotalPaquete  = precioBase * fd.numero_personas;
     const subtotalExtras   = fd.servicios_adicionales.reduce((acc, curr) => acc + curr.precio, 0);
-    const subtotalCustom   = adicionalesCustom.reduce((acc, a) => acc + Number(a.precio), 0);
-    const subtotal         = (subtotalPaquete + subtotalExtras + subtotalCustom) - fd.descuento;
+    const subtotal         = (subtotalPaquete + subtotalExtras) - fd.descuento;
     return { subtotal, iva: 0, total: subtotal };
   };
 
   useEffect(() => {
     const totals = calculateTotal();
     if (totals) setFormData(prev => ({ ...prev, ...totals }));
-  }, [formData.paquete_id, formData.numero_personas, formData.descuento, formData.servicios_adicionales, formData.precio_personalizado, adicionalesCustom]);
+  }, [formData.paquete_id, formData.numero_personas, formData.descuento, formData.servicios_adicionales, formData.precio_personalizado]);
 
   useEffect(() => {
     if (formData.paquete_id !== 'personalizada' || !formData.personalizado_horas || selectedRecipesCustom.length === 0) {
@@ -718,6 +717,18 @@ const QuotesPage = () => {
                               </div>
                             </div>
                           </div>
+
+                          {adicionalesCustom.length > 0 && (
+                            <div className="glass p-4 border-l-4 border-l-amber-500 bg-white/[0.02] space-y-2">
+                              <h4 className="text-[10px] font-black text-amber-400 tracking-widest">Adicionales (no incluidos en el total)</h4>
+                              {adicionalesCustom.map((a, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-sm">
+                                  <span className="text-slate-300">{a.nombre}</span>
+                                  <span className="text-amber-400 font-black">${Number(a.precio).toLocaleString('es-MX')}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
 
                           {condiciones && (
                             <div className="flex items-start gap-2 p-4 glass rounded-xl">
