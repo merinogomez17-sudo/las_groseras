@@ -10,6 +10,7 @@ import { PDFDownloadLink } from '@react-pdf/renderer';
 import QuotePDF from '../../components/quotes/QuotePDF';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
+import { calcComponentCost, buildGenericOptions } from '../../utils/recipeCost';
 
 const PACKAGES = [
   { id: 'bien_portado',  nombre: 'Bien Portado',        precio_persona: 210, items: ['Barra libre Micheladas (Clásica/Cubana/Clamato)', '2 Sabores de michelada', '2 Horas de Servicio'] },
@@ -69,33 +70,35 @@ const QuotesPage = () => {
 
   const fetchAvgRecipeCost = async () => {
     try {
-      const { data: insumos } = await supabase.from('insumos').select('id, tipo_insumo, marca, precio_promedio, ml_gr_pieza, precio_x_ml, total_unidades_compradas');
-      const { data: recetas } = await supabase.from('recetas_base').select('id, nombre, categoria, receta_componentes(tipo_insumo, marca, insumo_nombre_manual, cantidad)').order('categoria');
-      const { data: mezclas } = await supabase.from('insumo_mezclas').select('nombre_generico');
-      const mezclaSet = new Set((mezclas || []).map(m => m.nombre_generico.toLowerCase()));
-      const inv = insumos || [];
+      const { data: inv }     = await supabase.from('insumos').select('*');
+      const { data: mezclas } = await supabase.from('insumo_mezclas').select('*, insumos(*)');
+      const { data: recetas } = await supabase.from('recetas_base')
+        .select('id, nombre, categoria, receta_componentes(tipo_insumo, marca, insumo_nombre_manual, cantidad, insumo_id)')
+        .order('categoria');
+
+      const inventory = inv || [];
+      const mezclasData = mezclas || [];
+      const mezclaSet = new Set(mezclasData.map(m => m.nombre_generico.toLowerCase()));
+      const genericOptions = buildGenericOptions(inventory);
 
       const withCosts = (recetas || []).map(r => {
         const costo = (r.receta_componentes || []).reduce((acc, c) => {
-          const qty = parseFloat(c.cantidad) || 0;
-          const hasManual = !!c.insumo_nombre_manual && !c.tipo_insumo;
-          if (hasManual && mezclaSet.has(c.insumo_nombre_manual?.toLowerCase())) return acc;
-          if (c.tipo_insumo && c.marca) {
-            const matches = inv.filter(i => i.tipo_insumo === c.tipo_insumo && i.marca === c.marca);
-            if (!matches.length) return acc;
-            const totalUnits = matches.reduce((s, i) => s + (Number(i.total_unidades_compradas) || 0), 0);
-            const pxml = totalUnits > 0
-              ? matches.reduce((s, i) => s + (i.precio_promedio / (i.ml_gr_pieza || 1)) * (Number(i.total_unidades_compradas) || 0), 0) / totalUnits
-              : matches.reduce((s, i) => s + (i.precio_x_ml || (i.precio_promedio / (i.ml_gr_pieza || 1))), 0) / matches.length;
-            return acc + pxml * qty;
-          }
-          return acc;
+          const hasManual = !c.insumo_id && !!c.insumo_nombre_manual;
+          const isMezcla  = hasManual && mezclaSet.has(c.insumo_nombre_manual?.toLowerCase());
+          const isGeneric = hasManual && !isMezcla && !c.tipo_insumo;
+          const normalized = {
+            is_mezcla: isMezcla, is_generic: isGeneric,
+            tipo_insumo: c.tipo_insumo || (isGeneric ? c.insumo_nombre_manual : ''),
+            marca: c.marca || '',
+            insumo_nombre_manual: c.insumo_nombre_manual,
+            cantidad: c.cantidad,
+          };
+          return acc + calcComponentCost(normalized, inventory, genericOptions, mezclasData);
         }, 0);
         return { ...r, costo };
       });
 
       setAvailableRecipes(withCosts);
-      // Pre-seleccionar básicas
       setSelectedRecipesCustom(withCosts.filter(r => r.categoria === 'Basica').map(r => r.id));
     } catch (err) {
       console.error('Error calculando costos de recetas:', err);
