@@ -181,10 +181,14 @@ const QuotesPage = () => {
       notas: quote.notas || ''
     });
     setPreviewItems(pkg?.items || []);
+    // Restaurar selección de recetas a partir de los nombres guardados
+    if (pkg?.items && availableRecipes.length > 0) {
+      setSelectedRecipesCustom(availableRecipes.filter(r => pkg.items.includes(r.nombre)).map(r => r.id));
+    }
     setAdicionalesCustom(quote.adicionales_custom || []);
     setCondiciones(quote.notas || 'Cotización válida por 15 días. Los precios incluyen montaje básico.');
     setEditingQuoteId(quote.id);
-    setStep(3);
+    setStep(2);
     setShowSuccess(false);
     setPanelOpen(true);
   };
