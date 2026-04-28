@@ -159,7 +159,7 @@ const QuotePDF = ({ quote }) => {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Cliente / Evento:</Text>
             <Text style={styles.infoValue}>
-              {quote.clientes?.nombre_completo || quote.leads?.nombre_contacto || 'Cliente Directo'}
+              {quote.clientes?.nombre_completo || quote.leads?.nombre_contacto || 'Cliente Directo'}{quote.tipo_evento ? ` / ${quote.tipo_evento}` : ''}
             </Text>
           </View>
           <View style={styles.infoRow}>
