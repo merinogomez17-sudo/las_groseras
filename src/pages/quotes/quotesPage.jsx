@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   FileText, Plus, Download,
-  Trash2, X, Save, Calculator,
+  Trash2, X, Save, Calculator, Edit2,
   User, Users, Calendar, Package, ChevronRight, CheckCircle,
   PlusCircle, AlertCircle, Clock, ShieldCheck, CreditCard
 } from 'lucide-react';
@@ -53,6 +53,7 @@ const QuotesPage = () => {
   const [condiciones, setCondiciones]             = useState('Cotización válida por 15 días. Los precios incluyen montaje básico.');
   const [adicionalesCustom, setAdicionalesCustom] = useState([]);
   const [nuevoAdicional, setNuevoAdicional]       = useState({ nombre: '', precio: '' });
+  const [editingQuoteId, setEditingQuoteId]       = useState(null);
 
   useEffect(() => { fetchQuotes(); fetchLeads(); fetchAvgRecipeCost(); }, []);
 
@@ -152,12 +153,43 @@ const QuotesPage = () => {
 
   const openPanel = () => {
     setFormData(EMPTY_FORM);
+    setPreviewItems([]);
+    setAdicionalesCustom([]);
+    setCondiciones('Cotización válida por 15 días. Los precios incluyen montaje básico.');
+    setEditingQuoteId(null);
     setStep(1);
     setShowSuccess(false);
     setPanelOpen(true);
   };
 
-  const closePanel = () => { setPanelOpen(false); setStep(1); setShowSuccess(false); };
+  const openEditPanel = (quote) => {
+    const pkg = quote.paquetes_incluidos?.[0];
+    const pkgId = pkg?.id || 'bien_portado';
+    const isPersonalizada = pkgId === 'personalizada';
+    setFormData({
+      lead_id: quote.lead_id || '',
+      numero_personas: quote.numero_personas || 50,
+      tipo_evento: quote.tipo_evento || '',
+      paquete_id: pkgId,
+      precio_personalizado: isPersonalizada ? (quote.precio_por_persona || 0) : 0,
+      personalizado_barra_libre: true,
+      personalizado_sabores: 0, personalizado_tragos: 0,
+      personalizado_cervezas: 0, personalizado_horas: 2,
+      servicios_adicionales: quote.servicios_adicionales || [],
+      descuento: quote.descuento || 0,
+      subtotal: quote.subtotal || 0, iva: 0, total: quote.total || 0,
+      notas: quote.notas || ''
+    });
+    setPreviewItems(pkg?.items || []);
+    setAdicionalesCustom(quote.adicionales_custom || []);
+    setCondiciones(quote.notas || 'Cotización válida por 15 días. Los precios incluyen montaje básico.');
+    setEditingQuoteId(quote.id);
+    setStep(3);
+    setShowSuccess(false);
+    setPanelOpen(true);
+  };
+
+  const closePanel = () => { setPanelOpen(false); setStep(1); setShowSuccess(false); setEditingQuoteId(null); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -181,18 +213,24 @@ const QuotesPage = () => {
           } : null
         }],
         precio_por_persona: precioFinal,
-        numero_cotizacion: `COT-${Date.now().toString().slice(-4)}`,
         notas: condiciones || dbData.notas,
         adicionales_custom: adicionalesCustom.length > 0 ? adicionalesCustom : null,
-        estado: 'borrador'
       };
 
-      const { error } = await supabase.from('cotizaciones').insert([payload]);
-      if (error) throw error;
+      if (editingQuoteId) {
+        const { error } = await supabase.from('cotizaciones').update(payload).eq('id', editingQuoteId);
+        if (error) throw error;
+        setCreatedQuote({ ...payload, numero_cotizacion: quotes.find(q => q.id === editingQuoteId)?.numero_cotizacion });
+        toast.success('Cotización actualizada', { id: loadingToast });
+      } else {
+        const fullPayload = { ...payload, numero_cotizacion: `COT-${Date.now().toString().slice(-4)}`, estado: 'borrador' };
+        const { error } = await supabase.from('cotizaciones').insert([fullPayload]);
+        if (error) throw error;
+        setCreatedQuote(fullPayload);
+        toast.success('Cotización creada con éxito', { id: loadingToast });
+      }
 
-      setCreatedQuote(payload);
       setShowSuccess(true);
-      toast.success('Cotización creada con éxito', { id: loadingToast });
       fetchQuotes();
     } catch (err) {
       toast.error('Error al guardar: ' + err.message, { id: loadingToast });
@@ -316,6 +354,10 @@ const QuotesPage = () => {
                     <span className="text-[10px] font-black">Confirmar Pago</span>
                   </button>
                 )}
+                <button onClick={() => openEditPanel(quote)}
+                  className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-slate-400 hover:text-white transition-all">
+                  <Edit2 size={18} />
+                </button>
                 <PDFDownloadLink
                   document={<QuotePDF quote={quote} />}
                   fileName={`${quote.numero_cotizacion}.pdf`}
@@ -353,7 +395,7 @@ const QuotesPage = () => {
                     <div className="w-20 h-20 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mb-6 border border-emerald-500/30">
                       <ShieldCheck size={40} className="stroke-[2.5px]" />
                     </div>
-                    <h2 className="text-3xl font-black text-white tracking-tighter mb-2">¡Cotización Generada!</h2>
+                    <h2 className="text-3xl font-black text-white tracking-tighter mb-2">{editingQuoteId ? '¡Cotización Actualizada!' : '¡Cotización Generada!'}</h2>
                     <p className="text-slate-500 font-bold tracking-widest text-[10px] mb-8">Ref: {createdQuote?.numero_cotizacion}</p>
                     <div className="flex flex-col gap-3 w-full">
                       <PDFDownloadLink
