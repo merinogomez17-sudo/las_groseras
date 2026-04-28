@@ -48,6 +48,9 @@ const QuotesPage = () => {
   const [sugerenciaPrecio, setSugerenciaPrecio]   = useState(null);
   const [availableRecipes, setAvailableRecipes]   = useState([]);
   const [selectedRecipesCustom, setSelectedRecipesCustom] = useState([]);
+  const [previewItems, setPreviewItems]           = useState([]);
+  const [previewNewItem, setPreviewNewItem]       = useState('');
+  const [condiciones, setCondiciones]             = useState('Cotización válida por 15 días. Los precios incluyen montaje básico.');
 
   useEffect(() => { fetchQuotes(); fetchLeads(); fetchAvgRecipeCost(); }, []);
 
@@ -162,14 +165,8 @@ const QuotesPage = () => {
       const { paquete_id, precio_personalizado, personalizado_barra_libre, personalizado_sabores, personalizado_tragos, personalizado_cervezas, personalizado_horas, ...dbData } = formData;
       const precioFinal = paquete_id === 'personalizada' ? Number(precio_personalizado || 0) : selectedPkg.precio_persona;
 
-      let finalItems = selectedPkg.items;
-      if (paquete_id === 'personalizada') {
-        const selected = availableRecipes.filter(r => selectedRecipesCustom.includes(r.id));
-        finalItems = selected.length > 0
-          ? selected.map(r => r.nombre)
-          : ['Servicio configurado a la medida'];
-        if (personalizado_horas > 0) finalItems.push(`${personalizado_horas} Horas de Servicio`);
-      }
+      // Usar los items editados en el preview (step 3)
+      const finalItems = previewItems.length > 0 ? previewItems : selectedPkg.items;
 
       const payload = {
         ...dbData,
@@ -183,6 +180,7 @@ const QuotesPage = () => {
         }],
         precio_por_persona: precioFinal,
         numero_cotizacion: `COT-${Date.now().toString().slice(-4)}`,
+        notas: condiciones || dbData.notas,
         estado: 'borrador'
       };
 
@@ -375,16 +373,16 @@ const QuotesPage = () => {
                 ) : (
                   <>
                     {/* Steps */}
-                    <div className="flex items-center gap-4 mb-8 pb-6 border-b border-white/5">
-                      {[1, 2, 3].map((s) => (
-                        <div key={s} className="flex items-center gap-2">
-                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm transition-all ${step >= s ? 'bg-brand-red text-white' : 'bg-white/5 text-slate-600'}`}>
-                            {step > s ? <CheckCircle size={18} /> : s}
+                    <div className="flex items-center gap-2 mb-8 pb-6 border-b border-white/5">
+                      {[1, 2, 3, 4].map((s) => (
+                        <div key={s} className="flex items-center gap-1.5">
+                          <div className={`w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs transition-all ${step >= s ? 'bg-brand-red text-white' : 'bg-white/5 text-slate-600'}`}>
+                            {step > s ? <CheckCircle size={14} /> : s}
                           </div>
-                          <span className={`text-[10px] font-black tracking-widest ${step >= s ? 'text-white' : 'text-slate-600'}`}>
-                            {s === 1 ? 'Cliente' : s === 2 ? 'Paquete' : 'Resumen'}
+                          <span className={`text-[9px] font-black tracking-widest ${step >= s ? 'text-white' : 'text-slate-600'}`}>
+                            {s === 1 ? 'Cliente' : s === 2 ? 'Paquete' : s === 3 ? 'Preview' : 'Resumen'}
                           </span>
-                          {s < 3 && <ChevronRight size={12} className="text-slate-700 mx-1" />}
+                          {s < 4 && <ChevronRight size={10} className="text-slate-700 mx-0.5" />}
                         </div>
                       ))}
                     </div>
@@ -557,15 +555,82 @@ const QuotesPage = () => {
 
                           <div className="flex justify-between items-center pt-2">
                             <button type="button" onClick={() => setStep(1)} className="btn-secondary text-xs px-6">Regresar</button>
-                            <button type="button" onClick={() => setStep(3)} className="btn-primary px-8">
+                            <button type="button" onClick={() => {
+                              const pkg = PACKAGES.find(p => p.id === formData.paquete_id);
+                              let items = formData.paquete_id === 'personalizada'
+                                ? availableRecipes.filter(r => selectedRecipesCustom.includes(r.id)).map(r => r.nombre)
+                                : [...pkg.items];
+                              if (formData.paquete_id === 'personalizada' && formData.personalizado_horas > 0)
+                                items.push(`${formData.personalizado_horas} Horas de Servicio`);
+                              setPreviewItems(items);
+                              setStep(3);
+                            }} className="btn-primary px-8">
+                              Preview <ChevronRight size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* STEP 3 — PREVIEW Y EDICIÓN */}
+                      {step === 3 && (
+                        <div className="space-y-5">
+                          <h3 className="text-xs font-black text-brand-red tracking-widest flex items-center gap-2">
+                            <Package size={14} /> Bebidas incluidas
+                          </h3>
+
+                          <div className="space-y-1.5">
+                            {previewItems.map((item, idx) => (
+                              <div key={idx} className="flex items-center gap-2 bg-white/5 px-3 py-2 rounded-xl border border-white/5">
+                                <span className="flex-1 text-sm text-white font-medium">{item}</span>
+                                <button type="button"
+                                  onClick={() => setPreviewItems(prev => prev.filter((_, i) => i !== idx))}
+                                  className="text-slate-600 hover:text-brand-red transition-colors shrink-0">
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Agregar bebida personalizada */}
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              className="input-field flex-1 py-2 text-sm bg-white/5 border-white/10"
+                              placeholder="Agregar bebida o condición..."
+                              value={previewNewItem}
+                              onChange={(e) => setPreviewNewItem(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') { e.preventDefault(); if (previewNewItem.trim()) { setPreviewItems(prev => [...prev, previewNewItem.trim()]); setPreviewNewItem(''); } }
+                              }}
+                            />
+                            <button type="button"
+                              onClick={() => { if (previewNewItem.trim()) { setPreviewItems(prev => [...prev, previewNewItem.trim()]); setPreviewNewItem(''); } }}
+                              className="btn-secondary px-3 py-2 shrink-0">
+                              <Plus size={16} />
+                            </button>
+                          </div>
+
+                          <h3 className="text-xs font-black text-brand-red tracking-widest flex items-center gap-2 pt-2">
+                            <AlertCircle size={14} /> Condiciones de la cotización
+                          </h3>
+                          <textarea
+                            rows={4}
+                            className="input-field w-full text-sm bg-white/5 border-white/10 resize-none leading-relaxed"
+                            value={condiciones}
+                            onChange={(e) => setCondiciones(e.target.value)}
+                          />
+
+                          <div className="flex justify-between items-center pt-2">
+                            <button type="button" onClick={() => setStep(2)} className="btn-secondary text-xs px-6">Regresar</button>
+                            <button type="button" onClick={() => setStep(4)} className="btn-primary px-8">
                               Resumen <ChevronRight size={16} />
                             </button>
                           </div>
                         </div>
                       )}
 
-                      {/* STEP 3 */}
-                      {step === 3 && (
+                      {/* STEP 4 */}
+                      {step === 4 && (
                         <div className="space-y-5">
                           <div className="glass p-5 border-l-4 border-l-emerald-500 bg-white/[0.02]">
                             <h4 className="text-[10px] font-black text-slate-500 tracking-widest mb-4">Conceptos de Venta</h4>
@@ -611,13 +676,15 @@ const QuotesPage = () => {
                             </div>
                           </div>
 
-                          <div className="flex items-start gap-2 p-4 glass rounded-xl">
-                            <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={15} />
-                            <p className="text-[10px] font-medium text-slate-400 leading-relaxed">Cotización válida por 15 días. Los precios incluyen montaje básico.</p>
-                          </div>
+                          {condiciones && (
+                            <div className="flex items-start gap-2 p-4 glass rounded-xl">
+                              <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={15} />
+                              <p className="text-[10px] font-medium text-slate-400 leading-relaxed">{condiciones}</p>
+                            </div>
+                          )}
 
                           <div className="flex justify-between items-center pt-2">
-                            <button type="button" onClick={() => setStep(2)} className="btn-secondary text-xs px-6">Regresar</button>
+                            <button type="button" onClick={() => setStep(3)} className="btn-secondary text-xs px-6">Regresar</button>
                             <button type="submit" className="btn-primary px-8">
                               <Save size={16} /> Generar cotización
                             </button>
