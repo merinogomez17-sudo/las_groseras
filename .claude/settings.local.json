@@ -5,7 +5,8 @@
       "Bash(node -e ' *)",
       "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const { Client } = require\\('pg'\\); const c = new Client\\({ connectionString: process.env.DB_CONNECTION_STRING }\\); c.connect\\(\\).then\\(async \\(\\) => { const { rows } = await c.query\\('SELECT tipo_insumo, marca, precio_promedio, ml_gr_pieza FROM insumos WHERE precio_promedio = 0 OR precio_promedio IS NULL ORDER BY tipo_insumo, marca'\\); rows.forEach\\(r => console.log\\(r.tipo_insumo + ' — ' + r.marca + ': $' + r.precio_promedio\\)\\); await c.end\\(\\); }\\);\")",
       "Bash(node scratch/check_counts.cjs)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(node scratch/check_recetas.cjs)"
     ]
   }
 }
