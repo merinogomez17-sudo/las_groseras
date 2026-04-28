@@ -44,8 +44,10 @@ const QuotesPage = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [createdQuote, setCreatedQuote] = useState(null);
   const [formData, setFormData]     = useState(EMPTY_FORM);
+  const [sugerenciaPrecio, setSugerenciaPrecio] = useState(null);
+  const [avgRecipeCost, setAvgRecipeCost]       = useState(null);
 
-  useEffect(() => { fetchQuotes(); fetchLeads(); }, []);
+  useEffect(() => { fetchQuotes(); fetchLeads(); fetchAvgRecipeCost(); }, []);
 
   const fetchQuotes = async () => {
     setLoading(true);
@@ -64,6 +66,40 @@ const QuotesPage = () => {
     setLeads(data || []);
   };
 
+  const fetchAvgRecipeCost = async () => {
+    try {
+      const { data: insumos } = await supabase.from('insumos').select('id, tipo_insumo, marca, precio_promedio, ml_gr_pieza, precio_x_ml, total_unidades_compradas');
+      const { data: recetas } = await supabase.from('recetas_base').select('id, receta_componentes(tipo_insumo, marca, insumo_nombre_manual, cantidad, is_generic)');
+      const { data: mezclas } = await supabase.from('insumo_mezclas').select('nombre_generico');
+      const mezclaSet = new Set((mezclas || []).map(m => m.nombre_generico.toLowerCase()));
+      const inv = insumos || [];
+
+      const costs = (recetas || []).map(r => {
+        return (r.receta_componentes || []).reduce((acc, c) => {
+          const qty = parseFloat(c.cantidad) || 0;
+          const hasManual = !!c.insumo_nombre_manual && !c.tipo_insumo;
+          if (hasManual && mezclaSet.has(c.insumo_nombre_manual?.toLowerCase())) return acc;
+          if (c.tipo_insumo && c.marca) {
+            const matches = inv.filter(i => i.tipo_insumo === c.tipo_insumo && i.marca === c.marca);
+            if (!matches.length) return acc;
+            const totalUnits = matches.reduce((s, i) => s + (Number(i.total_unidades_compradas) || 0), 0);
+            const pxml = totalUnits > 0
+              ? matches.reduce((s, i) => s + (i.precio_promedio / (i.ml_gr_pieza || 1)) * (Number(i.total_unidades_compradas) || 0), 0) / totalUnits
+              : matches.reduce((s, i) => s + (i.precio_x_ml || (i.precio_promedio / (i.ml_gr_pieza || 1))), 0) / matches.length;
+            return acc + pxml * qty;
+          }
+          return acc;
+        }, 0);
+      }).filter(c => c > 0);
+
+      if (costs.length > 0) {
+        setAvgRecipeCost(costs.reduce((a, b) => a + b, 0) / costs.length);
+      }
+    } catch (err) {
+      console.error('Error calculando costo promedio recetas:', err);
+    }
+  };
+
   const calculateTotal = (fd = formData) => {
     const pkg = PACKAGES.find(p => p.id === fd.paquete_id);
     if (!pkg) return;
@@ -78,6 +114,17 @@ const QuotesPage = () => {
     const totals = calculateTotal();
     if (totals) setFormData(prev => ({ ...prev, ...totals }));
   }, [formData.paquete_id, formData.numero_personas, formData.descuento, formData.servicios_adicionales, formData.precio_personalizado]);
+
+  useEffect(() => {
+    if (formData.paquete_id !== 'personalizada' || !avgRecipeCost || !formData.personalizado_horas) {
+      setSugerenciaPrecio(null);
+      return;
+    }
+    const bebidasPorPersona = 0.9 * formData.personalizado_horas;
+    const costoBase = bebidasPorPersona * avgRecipeCost;
+    const sugerido  = Math.ceil(costoBase * 1.7);
+    setSugerenciaPrecio({ bebidasPorPersona, costoBase, sugerido });
+  }, [formData.paquete_id, formData.personalizado_horas, avgRecipeCost]);
 
   const toggleExtra = (extra) => {
     setFormData(prev => {
@@ -399,16 +446,8 @@ const QuotesPage = () => {
                                   {formData.paquete_id === pkg.id && <CheckCircle className="text-brand-red" size={16} />}
                                 </div>
                                 {pkg.id === 'personalizada' ? (
-                                  <div onClick={(e) => e.stopPropagation()} className="space-y-2 mt-2">
-                                    <div className="flex items-center text-brand-red bg-white/5 border border-brand-red/20 px-3 py-1.5 rounded-lg w-32 focus-within:border-brand-red transition-colors">
-                                      <span className="font-black mr-1">$</span>
-                                      <input type="number" className="bg-transparent outline-none flex-1 font-black text-white w-full"
-                                        value={formData.precio_personalizado || ''}
-                                        placeholder="0"
-                                        onChange={(e) => setFormData({...formData, precio_personalizado: e.target.value})} />
-                                      <span className="text-[9px] text-slate-500 ml-1">/pax</span>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2 mt-2">
+                                  <div onClick={(e) => e.stopPropagation()} className="space-y-3 mt-2">
+                                    <div className="grid grid-cols-2 gap-2">
                                       {[
                                         { label: 'Sabores', key: 'personalizado_sabores' },
                                         { label: 'Tragos',  key: 'personalizado_tragos' },
@@ -423,6 +462,38 @@ const QuotesPage = () => {
                                             className="w-12 bg-white/5 p-1 text-center rounded border border-white/10 text-white outline-none focus:border-brand-red" />
                                         </div>
                                       ))}
+                                    </div>
+
+                                    {/* SUGERENCIA DE PRECIO */}
+                                    {sugerenciaPrecio && formData.paquete_id === 'personalizada' && (
+                                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 space-y-1.5">
+                                        <p className="text-[9px] font-black text-amber-400 tracking-widest">PRECIO SUGERIDO</p>
+                                        <p className="text-xl font-black text-white">
+                                          ${sugerenciaPrecio.sugerido.toLocaleString('es-MX')}
+                                          <span className="text-[9px] text-slate-500 ml-1">/pax</span>
+                                        </p>
+                                        <p className="text-[9px] text-slate-400">
+                                          {sugerenciaPrecio.bebidasPorPersona.toFixed(1)} bebidas/persona × ${sugerenciaPrecio.costoBase.toFixed(0)} costo × 1.7×
+                                        </p>
+                                        <button type="button"
+                                          onClick={() => setFormData(prev => ({ ...prev, precio_personalizado: sugerenciaPrecio.sugerido }))}
+                                          className="text-[9px] font-black text-amber-400 hover:text-white border border-amber-500/40 hover:bg-amber-500/20 px-3 py-1 rounded-lg transition-all">
+                                          Aceptar sugerencia
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {/* PRECIO MANUAL */}
+                                    <div>
+                                      <label className="block text-[9px] font-black text-slate-500 tracking-widest mb-1">PRECIO / PAX</label>
+                                      <div className="flex items-center text-brand-red bg-white/5 border border-brand-red/20 px-3 py-1.5 rounded-lg w-36 focus-within:border-brand-red transition-colors">
+                                        <span className="font-black mr-1">$</span>
+                                        <input type="number" className="bg-transparent outline-none flex-1 font-black text-white w-full"
+                                          value={formData.precio_personalizado || ''}
+                                          placeholder={sugerenciaPrecio ? sugerenciaPrecio.sugerido : '0'}
+                                          onChange={(e) => setFormData({...formData, precio_personalizado: e.target.value})} />
+                                        <span className="text-[9px] text-slate-500 ml-1">/pax</span>
+                                      </div>
                                     </div>
                                   </div>
                                 ) : (
