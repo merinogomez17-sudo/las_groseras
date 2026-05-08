@@ -15,6 +15,7 @@ import Insumos from './pages/insumos/insumosPage';
 import Events from './pages/events/eventsPage';
 import { SettingsPage as Settings } from './pages/placeholders';
 import Formulario from './pages/configuracion/formularioPage';
+import PaquetesConfig from './pages/configuracion/paquetesPage';
 import AdminGuard from './components/auth/AdminGuard';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { Menu } from 'lucide-react';
@@ -78,6 +79,7 @@ function AdminLayout() {
             <Route path="/eventos" element={<Events />} />
             <Route path="/configuracion" element={<Settings />} />
             <Route path="/configuracion/formulario" element={<Formulario />} />
+            <Route path="/configuracion/paquetes" element={<PaquetesConfig />} />
           </Routes>
         </main>
       </div>

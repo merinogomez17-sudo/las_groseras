@@ -41,6 +41,7 @@ const menuGroups = [
     label: 'Configuración',
     items: [
       { icon: ClipboardList, label: 'Formulario', path: '/admin/configuracion/formulario' },
+      { icon: Package, label: 'Paquetes', path: '/admin/configuracion/paquetes' },
     ],
   },
 ];

@@ -12,7 +12,7 @@ import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { calcComponentCost, buildGenericOptions } from '../../utils/recipeCost';
 
-const PACKAGES = [
+const PACKAGES_FALLBACK = [
   { id: 'bien_portado',  nombre: 'Bien Portado',        precio_persona: 210, items: ['Barra libre Micheladas (Clásica/Cubana/Clamato)', '2 Sabores de michelada', '2 Horas de Servicio'] },
   { id: 'algo_tranqui',  nombre: 'Algo Tranqui',         precio_persona: 250, items: ['Barra libre Micheladas (Clásica/Cubana/Clamato)', '3 Sabores de michelada', '1 Trago especial', '3 Horas de Servicio'] },
   { id: 'mal_portado',   nombre: 'Mal Portado',          precio_persona: 290, items: ['Barra libre Micheladas (Clásica/Cubana/Clamato)', '5 Sabores de michelada', '1 Trago especial', '2 Cervezas especiales', '3 Horas de Servicio'] },
@@ -30,7 +30,7 @@ const EXTRA_SERVICES = [
 
 const EMPTY_FORM = {
   lead_id: '', numero_personas: 50, tipo_evento: '',
-  paquete_id: 'bien_portado', precio_personalizado: 0,
+  paquete_id: '', precio_personalizado: 0,
   personalizado_barra_libre: true, personalizado_sabores: 2,
   personalizado_tragos: 0, personalizado_cervezas: 0, personalizado_horas: 2,
   servicios_adicionales: [], descuento: 0, subtotal: 0, iva: 0, total: 0, notas: ''
@@ -54,8 +54,16 @@ const QuotesPage = () => {
   const [adicionalesCustom, setAdicionalesCustom] = useState([]);
   const [nuevoAdicional, setNuevoAdicional]       = useState({ nombre: '', precio: '' });
   const [editingQuoteId, setEditingQuoteId]       = useState(null);
+  const [packages, setPackages]                   = useState(PACKAGES_FALLBACK);
 
-  useEffect(() => { fetchQuotes(); fetchLeads(); fetchAvgRecipeCost(); }, []);
+  useEffect(() => { 
+    fetchQuotes(); 
+    fetchLeads(); 
+    fetchAvgRecipeCost();
+    supabase.from('paquetes').select('*').order('precio_persona').then(({ data }) => {
+      if (data && data.length > 0) setPackages(data);
+    });
+  }, []);
 
   const fetchQuotes = async () => {
     setLoading(true);
@@ -112,9 +120,10 @@ const QuotesPage = () => {
   };
 
   const calculateTotal = (fd = formData) => {
-    const pkg = PACKAGES.find(p => p.id === fd.paquete_id);
+    const pkg = packages.find(p => p.id === fd.paquete_id);
     if (!pkg) return;
-    const precioBase       = fd.paquete_id === 'personalizada' ? Number(fd.precio_personalizado || 0) : pkg.precio_persona;
+    const isCustom = pkg.nombre === 'Barra Personalizada' || pkg.id === 'personalizada';
+    const precioBase       = isCustom ? Number(fd.precio_personalizado || 0) : pkg.precio_persona;
     const subtotalPaquete  = precioBase * fd.numero_personas;
     const subtotalExtras   = fd.servicios_adicionales.reduce((acc, curr) => acc + curr.precio, 0);
     const subtotal         = (subtotalPaquete + subtotalExtras) - fd.descuento;
@@ -127,7 +136,9 @@ const QuotesPage = () => {
   }, [formData.paquete_id, formData.numero_personas, formData.descuento, formData.servicios_adicionales, formData.precio_personalizado]);
 
   useEffect(() => {
-    if (formData.paquete_id !== 'personalizada' || !formData.personalizado_horas || selectedRecipesCustom.length === 0) {
+    const pkg = packages.find(p => p.id === formData.paquete_id);
+    const isCustom = pkg && (pkg.nombre === 'Barra Personalizada' || pkg.id === 'personalizada');
+    if (!isCustom || !formData.personalizado_horas || selectedRecipesCustom.length === 0) {
       setSugerenciaPrecio(null);
       return;
     }
@@ -152,7 +163,7 @@ const QuotesPage = () => {
   };
 
   const openPanel = () => {
-    setFormData(EMPTY_FORM);
+    setFormData({ ...EMPTY_FORM, paquete_id: packages[0]?.id || '' });
     setPreviewItems([]);
     setAdicionalesCustom([]);
     setCondiciones('Cotización válida por 15 días. Los precios incluyen montaje básico.');
@@ -164,8 +175,8 @@ const QuotesPage = () => {
 
   const openEditPanel = (quote) => {
     const pkg = quote.paquetes_incluidos?.[0];
-    const pkgId = pkg?.id || 'bien_portado';
-    const isPersonalizada = pkgId === 'personalizada';
+    const pkgId = pkg?.id || packages[0]?.id || '';
+    const isPersonalizada = pkg?.nombre === 'Barra Personalizada' || pkgId === 'personalizada';
     setFormData({
       lead_id: quote.lead_id || '',
       numero_personas: quote.numero_personas || 50,
@@ -199,9 +210,10 @@ const QuotesPage = () => {
     e.preventDefault();
     const loadingToast = toast.loading('Generando cotización...');
     try {
-      const selectedPkg = PACKAGES.find(p => p.id === formData.paquete_id);
+      const selectedPkg = packages.find(p => p.id === formData.paquete_id);
+      const isCustom = selectedPkg?.nombre === 'Barra Personalizada' || selectedPkg?.id === 'personalizada';
       const { paquete_id, precio_personalizado, personalizado_barra_libre, personalizado_sabores, personalizado_tragos, personalizado_cervezas, personalizado_horas, ...dbData } = formData;
-      const precioFinal = paquete_id === 'personalizada' ? Number(precio_personalizado || 0) : selectedPkg.precio_persona;
+      const precioFinal = isCustom ? Number(precio_personalizado || 0) : selectedPkg.precio_persona;
 
       // Usar los items editados en el preview (step 3)
       const finalItems = previewItems.length > 0 ? previewItems : selectedPkg.items;
@@ -210,7 +222,7 @@ const QuotesPage = () => {
         ...dbData,
         paquetes_incluidos: [{
           ...selectedPkg, items: finalItems, precio_persona: precioFinal,
-          limites_personalizados: paquete_id === 'personalizada' ? {
+          limites_personalizados: isCustom ? {
             'Cerveza con sabor': personalizado_sabores,
             'Bebida especial':   personalizado_tragos,
             'Cerveza especial':  personalizado_cervezas
@@ -487,7 +499,9 @@ const QuotesPage = () => {
                             <Package size={14} /> Selecciona tu paquete
                           </h3>
                           <div className="space-y-3">
-                            {PACKAGES.map((pkg) => (
+                            {packages.map((pkg) => {
+                              const isCustomPkg = pkg.nombre === 'Barra Personalizada' || pkg.id === 'personalizada';
+                              return (
                               <div
                                 key={pkg.id}
                                 onClick={() => setFormData({...formData, paquete_id: pkg.id})}
@@ -497,7 +511,7 @@ const QuotesPage = () => {
                                   <h4 className="font-black text-white text-sm">{pkg.nombre}</h4>
                                   {formData.paquete_id === pkg.id && <CheckCircle className="text-brand-red" size={16} />}
                                 </div>
-                                {pkg.id === 'personalizada' ? (
+                                {isCustomPkg ? (
                                   <div onClick={(e) => e.stopPropagation()} className="space-y-3 mt-2">
 
                                     {/* HORAS */}
@@ -574,7 +588,7 @@ const QuotesPage = () => {
                                   <p className="text-xl font-black text-brand-red">${pkg.precio_persona}<span className="text-[9px] text-slate-500 ml-1">/pax</span></p>
                                 )}
                               </div>
-                            ))}
+                            )})}
                           </div>
 
                           <h3 className="text-xs font-black text-brand-red tracking-widest flex items-center gap-2">
@@ -605,11 +619,12 @@ const QuotesPage = () => {
                           <div className="flex justify-between items-center pt-2">
                             <button type="button" onClick={() => setStep(1)} className="btn-secondary text-xs px-6">Regresar</button>
                             <button type="button" onClick={() => {
-                              const pkg = PACKAGES.find(p => p.id === formData.paquete_id);
-                              let items = formData.paquete_id === 'personalizada'
+                              const pkg = packages.find(p => p.id === formData.paquete_id);
+                              const isCustom = pkg && (pkg.nombre === 'Barra Personalizada' || pkg.id === 'personalizada');
+                              let items = isCustom
                                 ? availableRecipes.filter(r => selectedRecipesCustom.includes(r.id)).map(r => r.nombre)
                                 : [...pkg.items];
-                              if (formData.paquete_id === 'personalizada' && formData.personalizado_horas > 0)
+                              if (isCustom && formData.personalizado_horas > 0)
                                 items.push(`${formData.personalizado_horas} Horas de Servicio`);
                               setPreviewItems(items);
                               setStep(3);
@@ -726,10 +741,10 @@ const QuotesPage = () => {
                               <div className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
                                 <div>
                                   <span className="text-[8px] font-black text-slate-500 tracking-widest block">Paquete Base</span>
-                                  <span className="text-white font-black text-sm">{PACKAGES.find(p => p.id === formData.paquete_id)?.nombre}</span>
+                                  <span className="text-white font-black text-sm">{packages.find(p => p.id === formData.paquete_id)?.nombre}</span>
                                 </div>
                                 <span className="text-brand-red font-black text-lg">
-                                  ${((formData.paquete_id === 'personalizada' ? Number(formData.precio_personalizado || 0) : PACKAGES.find(p => p.id === formData.paquete_id)?.precio_persona) * formData.numero_personas).toLocaleString()}
+                                  ${(((packages.find(p => p.id === formData.paquete_id)?.nombre === 'Barra Personalizada' || formData.paquete_id === 'personalizada') ? Number(formData.precio_personalizado || 0) : packages.find(p => p.id === formData.paquete_id)?.precio_persona) * formData.numero_personas).toLocaleString()}
                                 </span>
                               </div>
                               {formData.servicios_adicionales.map((extra) => (
