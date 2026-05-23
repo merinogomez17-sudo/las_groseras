@@ -653,10 +653,12 @@ const EventsPage = () => {
                         className={`btn-secondary w-full py-3 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 ${selectedEvent?.id === event.id && panelOpen ? 'ring-1 ring-brand-red/50' : ''}`}>
                         <Beer size={14} /> Seleccionar Bebidas
                       </button>
-                      <button onClick={() => handleGenerateShoppingList(event)}
-                        className="btn-secondary w-full py-3 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10">
-                        <ShoppingBag size={14} /> Lista de compras
-                      </button>
+                      {event.evento_productos?.length > 0 && (
+                        <button onClick={() => handleGenerateShoppingList(event)}
+                          className="btn-secondary w-full py-3 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10">
+                          <ShoppingBag size={14} /> Lista de compras
+                        </button>
+                      )}
                       <button onClick={() => handleMarkAsFinished(event)}
                         className="btn-primary w-full py-3 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-brand-red/20">
                         <CheckCircle size={14} /> Finalizar Evento
@@ -664,10 +666,12 @@ const EventsPage = () => {
                     </>
                   ) : (
                     <>
-                      <button onClick={() => handleGenerateShoppingList(event)}
-                        className="btn-secondary w-full py-3 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10">
-                        <ShoppingBag size={14} /> Lista de compras
-                      </button>
+                      {event.evento_productos?.length > 0 && (
+                        <button onClick={() => handleGenerateShoppingList(event)}
+                          className="btn-secondary w-full py-3 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10">
+                          <ShoppingBag size={14} /> Lista de compras
+                        </button>
+                      )}
                       <button onClick={() => handleDeductInventory(event)}
                         className="btn-primary w-full py-3 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 bg-emerald-600 border-emerald-500 hover:bg-emerald-500 shadow-xl shadow-emerald-500/20">
                         <Play size={14} /> Descontar Inventario
@@ -788,12 +792,14 @@ const EventsPage = () => {
                       </button>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => handleGenerateShoppingList(selectedEvent)}
-                    className="w-full py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-500/20 transition-all"
-                  >
-                    <ShoppingBag size={14} /> Generar Lista de Compras
-                  </button>
+                  {selectedEvent?.evento_productos?.length > 0 && (
+                    <button
+                      onClick={() => handleGenerateShoppingList(selectedEvent)}
+                      className="w-full py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-500/20 transition-all"
+                    >
+                      <ShoppingBag size={14} /> Generar Lista de Compras
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -994,6 +1000,14 @@ const EventsPage = () => {
                         Pedir nuevas sugerencias IA
                       </button>
                     </div>
+
+                    {eventProductsForDist.length === 0 && (
+                      <div className="p-8 bg-white/5 rounded-2xl border border-white/5 text-center">
+                        <Beer size={32} className="mx-auto text-slate-600 mb-3" />
+                        <p className="text-slate-400 font-black text-sm">No hay bebidas seleccionadas para este evento.</p>
+                        <p className="text-slate-600 text-xs font-bold mt-1">Primero usa "Seleccionar Bebidas" en el panel del evento.</p>
+                      </div>
+                    )}
 
                     <div className="grid gap-3">
                       {eventProductsForDist.map((item, idx) => (
