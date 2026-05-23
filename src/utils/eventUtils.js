@@ -30,35 +30,44 @@ export const getEventLimits = (event) => {
   const pkgData = event.cotizaciones?.paquetes_incluidos?.[0] || {};
   const pkgId = normalizePkgId(event.paquete_contratado || pkgData.id || '');
 
+  let baseLimits = {};
+
   // 1. Manejar tanto 'personalizada' como 'personalizado'
   if (pkgId.startsWith('personaliza')) {
-    // Si ya tiene los límites numéricos guardados, usarlos
     if (pkgData.limites_personalizados) {
-      return pkgData.limites_personalizados;
-    }
-
-    // FALLBACK para registros viejos: Intentar extraer de la lista de items (strings)
-    if (pkgData.items && Array.isArray(pkgData.items)) {
+      baseLimits = pkgData.limites_personalizados;
+    } else if (pkgData.items && Array.isArray(pkgData.items)) {
       const extracted = {};
       pkgData.items.forEach(item => {
         const matchSabores = item.match(/(\d+)\s+Sabores/i);
         const matchTragos = item.match(/(\d+)\s+Trago/i);
         const matchCervezas = item.match(/(\d+)\s+Cerveza/i);
-        
         if (matchSabores) extracted['Cerveza con sabor'] = parseInt(matchSabores[1]);
         if (matchTragos) extracted['Bebida especial'] = parseInt(matchTragos[1]);
         if (matchCervezas) extracted['Cerveza especial'] = parseInt(matchCervezas[1]);
       });
-      return extracted;
+      baseLimits = extracted;
     }
+  } else if (PACKAGE_LIMITS[pkgId]) {
+    // 2. Buscar por pkgId directo (ej. 'algo_tranqui', 'mal_portado')
+    baseLimits = { ...PACKAGE_LIMITS[pkgId] };
+  } else {
+    // 3. Si pkgId es un UUID, buscar por nombre normalizado
+    const nameKey = normalizePkgId(pkgData.nombre || '');
+    if (nameKey && PACKAGE_LIMITS[nameKey]) baseLimits = { ...PACKAGE_LIMITS[nameKey] };
   }
 
-  // 2. Buscar por pkgId directo (ej. 'algo_tranqui', 'mal_portado')
-  if (PACKAGE_LIMITS[pkgId]) return PACKAGE_LIMITS[pkgId];
+  // Sumar bebidas adicionales a los límites base
+  const bebidasAdicionales = pkgData.bebidas_adicionales || [];
+  if (bebidasAdicionales.length > 0) {
+    const finalLimits = { ...baseLimits };
+    bebidasAdicionales.forEach(b => {
+      if (b.categoria && b.cantidad > 0) {
+        finalLimits[b.categoria] = (finalLimits[b.categoria] || 0) + b.cantidad;
+      }
+    });
+    return finalLimits;
+  }
 
-  // 3. Si pkgId es un UUID (paquete guardado con ID de BD), buscar por nombre normalizado
-  const nameKey = normalizePkgId(pkgData.nombre || '');
-  if (nameKey && PACKAGE_LIMITS[nameKey]) return PACKAGE_LIMITS[nameKey];
-
-  return {};
+  return baseLimits;
 };

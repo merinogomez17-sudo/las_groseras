@@ -205,6 +205,30 @@ const QuotePDF = ({ quote }) => {
               <Text style={styles.colTotal}>${extra.precio.toLocaleString()}</Text>
             </View>
           ))}
+
+          {/* BEBIDAS ADICIONALES */}
+          {(() => {
+            const BEBIDA_PDF_LABELS = {
+              'Cerveza con sabor': 'Sabor de Michelada (Adicional)',
+              'Bebida especial':   'Trago Especial (Adicional)',
+              'Cerveza especial':  'Cerveza Especial (Adicional)',
+            };
+            return (quote.paquetes_incluidos?.[0]?.bebidas_adicionales || []).map((b, idx) => {
+              const precioU = Number(b.precio_persona) || 0;
+              const total = precioU * quote.numero_personas;
+              return (
+                <View key={idx} style={styles.tableRow}>
+                  <View style={styles.colDesc}>
+                    <Text style={{ fontSize: 10, color: '#1e293b' }}>{BEBIDA_PDF_LABELS[b.categoria] || b.categoria}</Text>
+                    <Text style={{ fontSize: 8, color: '#94a3b8' }}>{b.cantidad} opción(es) adicional(es)</Text>
+                  </View>
+                  <Text style={styles.colQty}>{quote.numero_personas}</Text>
+                  <Text style={styles.colPrice}>${precioU.toLocaleString()}</Text>
+                  <Text style={styles.colTotal}>${total.toLocaleString()}</Text>
+                </View>
+              );
+            });
+          })()}
         </View>
 
         {/* TOTALS */}

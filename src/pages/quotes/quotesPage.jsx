@@ -3,7 +3,8 @@ import {
   FileText, Plus, Download,
   Trash2, X, Save, Calculator, Edit2,
   User, Users, Calendar, Package, ChevronRight, CheckCircle,
-  PlusCircle, AlertCircle, Clock, ShieldCheck, CreditCard
+  PlusCircle, AlertCircle, Clock, ShieldCheck, CreditCard,
+  GlassWater
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PDFDownloadLink } from '@react-pdf/renderer';
@@ -19,6 +20,12 @@ const PACKAGES_FALLBACK = [
   { id: 'el_mas_perro',  nombre: 'El Más Perro',         precio_persona: 330, items: ['Barra libre Micheladas (Clásica/Cubana/Clamato)', '5 Sabores de michelada', '3 Tragos especiales', '3 Cervezas especiales', 'Vasos personalizados con stickers', '4 Horas de Servicio'] },
   { id: 'personalizada', nombre: 'Barra Personalizada',  precio_persona: 0,   items: ['Servicio configurado 100% a la medida', 'Selección de elementos según acuerdo con el cliente'] },
 ];
+
+const BEBIDA_LABELS = {
+  'Cerveza con sabor': 'Sabor de Michelada',
+  'Bebida especial':   'Trago Especial',
+  'Cerveza especial':  'Cerveza Especial',
+};
 
 const EXTRA_SERVICES = [
   { id: 'shots_tequila',  nombre: 'Ronda de Shots Tequila (100)', precio: 1500, icono: '🥃' },
@@ -49,16 +56,19 @@ const QuotesPage = () => {
   const [availableRecipes, setAvailableRecipes]   = useState([]);
   const [selectedRecipesCustom, setSelectedRecipesCustom] = useState([]);
   const [previewItems, setPreviewItems]           = useState([]);
-  const [previewNewItem, setPreviewNewItem]       = useState('');
   const [condiciones, setCondiciones]             = useState('Cotización válida por 15 días. Los precios incluyen montaje básico.');
   const [adicionalesCustom, setAdicionalesCustom] = useState([]);
   const [nuevoAdicional, setNuevoAdicional]       = useState({ nombre: '', precio: '' });
   const [editingQuoteId, setEditingQuoteId]       = useState(null);
   const [packages, setPackages]                   = useState(PACKAGES_FALLBACK);
+  const [bebidasAdicionales, setBebidasAdicionales]   = useState([]);
+  const [nuevaBebidaCat, setNuevaBebidaCat]           = useState('Cerveza con sabor');
+  const [nuevaBebidaCantidad, setNuevaBebidaCantidad] = useState(1);
+  const [nuevaBebidaPrecio, setNuevaBebidaPrecio]     = useState(0);
 
-  useEffect(() => { 
-    fetchQuotes(); 
-    fetchLeads(); 
+  useEffect(() => {
+    fetchQuotes();
+    fetchLeads();
     fetchAvgRecipeCost();
     supabase.from('paquetes').select('*').order('precio_persona').then(({ data }) => {
       if (data && data.length > 0) setPackages(data);
@@ -119,21 +129,22 @@ const QuotesPage = () => {
     }
   };
 
-  const calculateTotal = (fd = formData) => {
+  const calculateTotal = (fd = formData, bebidas = bebidasAdicionales) => {
     const pkg = packages.find(p => p.id === fd.paquete_id);
     if (!pkg) return;
     const isCustom = pkg.nombre === 'Barra Personalizada' || pkg.id === 'personalizada';
     const precioBase       = isCustom ? Number(fd.precio_personalizado || 0) : pkg.precio_persona;
     const subtotalPaquete  = precioBase * fd.numero_personas;
     const subtotalExtras   = fd.servicios_adicionales.reduce((acc, curr) => acc + curr.precio, 0);
-    const subtotal         = (subtotalPaquete + subtotalExtras) - fd.descuento;
+    const subtotalBebidas  = bebidas.reduce((acc, b) => acc + (Number(b.precio_persona) || 0) * fd.numero_personas, 0);
+    const subtotal         = (subtotalPaquete + subtotalExtras + subtotalBebidas) - fd.descuento;
     return { subtotal, iva: 0, total: subtotal };
   };
 
   useEffect(() => {
     const totals = calculateTotal();
     if (totals) setFormData(prev => ({ ...prev, ...totals }));
-  }, [formData.paquete_id, formData.numero_personas, formData.descuento, formData.servicios_adicionales, formData.precio_personalizado]);
+  }, [formData.paquete_id, formData.numero_personas, formData.descuento, formData.servicios_adicionales, formData.precio_personalizado, bebidasAdicionales]);
 
   useEffect(() => {
     const pkg = packages.find(p => p.id === formData.paquete_id);
@@ -166,6 +177,10 @@ const QuotesPage = () => {
     setFormData({ ...EMPTY_FORM, paquete_id: packages[0]?.id || '' });
     setPreviewItems([]);
     setAdicionalesCustom([]);
+    setBebidasAdicionales([]);
+    setNuevaBebidaCat('Cerveza con sabor');
+    setNuevaBebidaCantidad(1);
+    setNuevaBebidaPrecio(0);
     setCondiciones('Cotización válida por 15 días. Los precios incluyen montaje básico.');
     setEditingQuoteId(null);
     setStep(1);
@@ -197,6 +212,10 @@ const QuotesPage = () => {
       setSelectedRecipesCustom(availableRecipes.filter(r => pkg.items.includes(r.nombre)).map(r => r.id));
     }
     setAdicionalesCustom(quote.adicionales_custom || []);
+    setBebidasAdicionales(pkg?.bebidas_adicionales || []);
+    setNuevaBebidaCat('Cerveza con sabor');
+    setNuevaBebidaCantidad(1);
+    setNuevaBebidaPrecio(0);
     setCondiciones(quote.notas || 'Cotización válida por 15 días. Los precios incluyen montaje básico.');
     setEditingQuoteId(quote.id);
     setStep(2);
@@ -226,7 +245,8 @@ const QuotesPage = () => {
             'Cerveza con sabor': personalizado_sabores,
             'Bebida especial':   personalizado_tragos,
             'Cerveza especial':  personalizado_cervezas
-          } : null
+          } : null,
+          bebidas_adicionales: bebidasAdicionales.length > 0 ? bebidasAdicionales : null
         }],
         precio_por_persona: precioFinal,
         notas: condiciones || dbData.notas,
@@ -591,31 +611,6 @@ const QuotesPage = () => {
                             )})}
                           </div>
 
-                          <h3 className="text-xs font-black text-brand-red tracking-widest flex items-center gap-2">
-                            <PlusCircle size={14} /> Extras
-                          </h3>
-                          <div className="space-y-2">
-                            {EXTRA_SERVICES.map((extra) => {
-                              const isSelected = formData.servicios_adicionales.find(e => e.id === extra.id);
-                              return (
-                                <div
-                                  key={extra.id}
-                                  onClick={() => toggleExtra(extra)}
-                                  className={`p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all border-2 ${isSelected ? 'bg-emerald-500/10 border-emerald-500/50' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-xl">{extra.icono}</span>
-                                    <div>
-                                      <div className="text-[11px] font-black text-white">{extra.nombre}</div>
-                                      <div className="text-[10px] font-bold text-emerald-400">${extra.precio.toLocaleString()}</div>
-                                    </div>
-                                  </div>
-                                  {isSelected ? <CheckCircle size={16} className="text-emerald-500" /> : <Plus size={16} className="text-slate-700" />}
-                                </div>
-                              );
-                            })}
-                          </div>
-
                           <div className="flex justify-between items-center pt-2">
                             <button type="button" onClick={() => setStep(1)} className="btn-secondary text-xs px-6">Regresar</button>
                             <button type="button" onClick={() => {
@@ -655,20 +650,62 @@ const QuotesPage = () => {
                             ))}
                           </div>
 
-                          {/* Agregar bebida personalizada */}
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
+                          {/* BEBIDAS ADICIONALES */}
+                          <h3 className="text-xs font-black text-brand-red tracking-widest flex items-center gap-2 pt-2">
+                            <GlassWater size={14} /> Bebidas adicionales
+                          </h3>
+
+                          {bebidasAdicionales.length > 0 && (
+                            <div className="space-y-1.5">
+                              {bebidasAdicionales.map((b, idx) => (
+                                <div key={idx} className="flex items-center gap-2 bg-white/5 border border-white/5 px-3 py-2 rounded-xl">
+                                  <span className="flex-1 text-sm text-white font-medium">{b.cantidad}x {BEBIDA_LABELS[b.categoria] || b.categoria}</span>
+                                  {b.precio_persona > 0 && <span className="text-[10px] text-slate-500 shrink-0">${b.precio_persona}/pax</span>}
+                                  <button type="button"
+                                    onClick={() => setBebidasAdicionales(prev => prev.filter((_, i) => i !== idx))}
+                                    className="text-slate-600 hover:text-brand-red transition-colors shrink-0">
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex gap-2 items-center">
+                            <select
                               className="input-field flex-1 py-2 text-sm bg-white/5 border-white/10"
-                              placeholder="Agregar bebida o condición..."
-                              value={previewNewItem}
-                              onChange={(e) => setPreviewNewItem(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') { e.preventDefault(); if (previewNewItem.trim()) { setPreviewItems(prev => [...prev, previewNewItem.trim()]); setPreviewNewItem(''); } }
-                              }}
+                              value={nuevaBebidaCat}
+                              onChange={(e) => setNuevaBebidaCat(e.target.value)}
+                            >
+                              <option value="Cerveza con sabor" className="bg-slate-900">Sabor de Michelada</option>
+                              <option value="Bebida especial" className="bg-slate-900">Trago Especial</option>
+                              <option value="Cerveza especial" className="bg-slate-900">Cerveza Especial</option>
+                            </select>
+                            <input
+                              type="number" min="1"
+                              className="input-field w-12 py-2 text-sm bg-white/5 border-white/10 text-center font-black"
+                              value={nuevaBebidaCantidad}
+                              onChange={(e) => setNuevaBebidaCantidad(Math.max(1, Number(e.target.value)))}
                             />
+                            <div className="flex items-center bg-white/5 border border-white/10 rounded-xl px-2 w-24 focus-within:border-brand-red transition-colors shrink-0">
+                              <span className="text-slate-500 font-black text-sm">$</span>
+                              <input
+                                type="number" min="0"
+                                className="bg-transparent outline-none flex-1 text-white font-black text-sm w-full py-2 pl-1"
+                                placeholder="0"
+                                value={nuevaBebidaPrecio || ''}
+                                onChange={(e) => setNuevaBebidaPrecio(Number(e.target.value))}
+                              />
+                              <span className="text-[9px] text-slate-500">/pax</span>
+                            </div>
                             <button type="button"
-                              onClick={() => { if (previewNewItem.trim()) { setPreviewItems(prev => [...prev, previewNewItem.trim()]); setPreviewNewItem(''); } }}
+                              onClick={() => {
+                                if (nuevaBebidaCantidad > 0) {
+                                  setBebidasAdicionales(prev => [...prev, { categoria: nuevaBebidaCat, cantidad: nuevaBebidaCantidad, precio_persona: nuevaBebidaPrecio }]);
+                                  setNuevaBebidaCantidad(1);
+                                  setNuevaBebidaPrecio(0);
+                                }
+                              }}
                               className="btn-secondary px-3 py-2 shrink-0">
                               <Plus size={16} />
                             </button>
@@ -756,6 +793,19 @@ const QuotesPage = () => {
                                   <span className="text-emerald-400 font-black">${extra.precio.toLocaleString()}</span>
                                 </div>
                               ))}
+                              {bebidasAdicionales.map((b, idx) => {
+                                const precioTotal = (Number(b.precio_persona) || 0) * formData.numero_personas;
+                                return (
+                                  <div key={idx} className="flex justify-between items-center bg-blue-500/5 p-3 rounded-xl border border-blue-500/10">
+                                    <div>
+                                      <span className="text-[8px] font-black text-blue-400/70 tracking-widest block">Bebida Adicional</span>
+                                      <span className="text-slate-200 font-bold text-xs">{b.cantidad}x {BEBIDA_LABELS[b.categoria] || b.categoria}</span>
+                                      {b.precio_persona > 0 && <span className="text-[9px] text-slate-500 block">${b.precio_persona}/pax × {formData.numero_personas} pax</span>}
+                                    </div>
+                                    <span className="text-blue-400 font-black">${precioTotal.toLocaleString()}</span>
+                                  </div>
+                                );
+                              })}
                               <div className="pt-3 border-t border-white/10">
                                 <label className="block text-[10px] font-black text-slate-500 tracking-widest mb-2">Descuento global ($)</label>
                                 <input type="number" className="input-field py-2 font-black text-rose-400 bg-white/5 border-white/10"
