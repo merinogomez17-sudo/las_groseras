@@ -2,7 +2,7 @@
  * CONFIGURACIÓN DE LÍMITES POR PAQUETE
  */
 export const PACKAGE_LIMITS = {
-  'bien_portado': { 'Cerveza con sabor': 2 },
+  'bien_portado': { },
   'algo_tranqui': { 'Cerveza con sabor': 2, 'Bebida especial': 1 },
   'mal_portado': { 'Cerveza con sabor': 2, 'Bebida especial': 2 },
   'el_mas_perro': { 'Cerveza con sabor': 2, 'Bebida especial': 5 }
