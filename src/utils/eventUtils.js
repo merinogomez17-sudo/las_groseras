@@ -3,9 +3,9 @@
  */
 export const PACKAGE_LIMITS = {
   'bien_portado': { 'Cerveza con sabor': 2 },
-  'algo_tranqui': { 'Cerveza con sabor': 3, 'Bebida especial': 1 },
-  'mal_portado': { 'Cerveza con sabor': 5, 'Bebida especial': 1, 'Cerveza especial': 2 },
-  'el_mas_perro': { 'Cerveza con sabor': 5, 'Bebida especial': 3, 'Cerveza especial': 3 }
+  'algo_tranqui': { 'Cerveza con sabor': 2, 'Bebida especial': 1 },
+  'mal_portado': { 'Cerveza con sabor': 2, 'Bebida especial': 2 },
+  'el_mas_perro': { 'Cerveza con sabor': 2, 'Bebida especial': 5 }
 };
 
 export const CATEGORY_LABELS = {
