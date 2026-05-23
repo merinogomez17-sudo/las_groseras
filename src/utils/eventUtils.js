@@ -53,6 +53,12 @@ export const getEventLimits = (event) => {
     }
   }
 
-  // 2. Si no es personalizado o no tiene datos, usar predefinidos
-  return PACKAGE_LIMITS[pkgId] || {};
+  // 2. Buscar por pkgId directo (ej. 'algo_tranqui', 'mal_portado')
+  if (PACKAGE_LIMITS[pkgId]) return PACKAGE_LIMITS[pkgId];
+
+  // 3. Si pkgId es un UUID (paquete guardado con ID de BD), buscar por nombre normalizado
+  const nameKey = normalizePkgId(pkgData.nombre || '');
+  if (nameKey && PACKAGE_LIMITS[nameKey]) return PACKAGE_LIMITS[nameKey];
+
+  return {};
 };
