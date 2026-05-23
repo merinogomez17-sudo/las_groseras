@@ -258,7 +258,9 @@ const DrinkSelectionPage = () => {
             </div>
             <div>
               <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Paquete Contratado</div>
-              <div className="text-sm font-black text-white italic uppercase">{event?.paquete_contratado || 'Personalizado'}</div>
+              <div className="text-sm font-black text-white italic uppercase">
+                {event?.cotizaciones?.paquetes_incluidos?.[0]?.nombre || event?.paquete_contratado || 'Personalizado'}
+              </div>
             </div>
           </div>
           <div className="glass p-5 flex items-center gap-4 border-l-4 border-emerald-500">
