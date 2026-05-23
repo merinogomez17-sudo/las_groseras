@@ -282,46 +282,49 @@ const DrinkSelectionPage = () => {
         </div>
 
       {/* Beer Brand Selection */}
-        {availableBeers.length > 0 && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-            className="space-y-6 mb-12"
-          >
-            <div className="flex justify-between items-center px-2">
-              <h3 className="text-xl font-black text-white italic tracking-tight uppercase flex items-center gap-3">
-                <Beer size={20} className="text-brand-red" /> Selecciona tu Cerveza Base
-              </h3>
-              <span className="text-[10px] font-black px-3 py-1.5 rounded-full bg-brand-red/10 text-brand-red border border-brand-red/20 uppercase tracking-widest">
-                {selectedBeers.length} Seleccionadas
-              </span>
-            </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+          className="space-y-6 mb-12"
+        >
+          <div className="flex justify-between items-center px-2">
+            <h3 className="text-xl font-black text-white italic tracking-tight uppercase flex items-center gap-3">
+              <Beer size={20} className="text-brand-red" /> Selecciona tu Cerveza Base
+            </h3>
+            <span className="text-[10px] font-black px-3 py-1.5 rounded-full bg-brand-red/10 text-brand-red border border-brand-red/20 uppercase tracking-widest">
+              {selectedBeers.length} Seleccionadas
+            </span>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {availableBeers.map(beer => (
-                <button 
-                  key={beer.id}
-                  onClick={() => handleToggleBeer(beer.displayName)}
-                  className={`group relative p-6 rounded-3xl border transition-all text-left ${selectedBeers.includes(beer.displayName) ? 'bg-brand-red border-brand-red shadow-xl shadow-brand-red/30' : 'bg-white/5 border-white/5 hover:border-white/20'}`}
-                >
-                  <div className="flex flex-col gap-1">
-                    <div className={`text-sm font-black uppercase italic tracking-tighter ${selectedBeers.includes(beer.displayName) ? 'text-white' : 'text-slate-200'}`}>
-                      {beer.displayName}
-                    </div>
-                    <div className={`text-[9px] font-bold uppercase tracking-widest ${selectedBeers.includes(beer.nombre) ? 'text-white/60' : 'text-slate-500'}`}>
-                      SABOR DISPONIBLE
-                    </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Opciones fijas temporales — opciones dinámicas de BD comentadas */}
+            {/* {availableBeers.map(beer => (
+              <button key={beer.id} onClick={() => handleToggleBeer(beer.displayName)} ...>
+                {beer.displayName}
+              </button>
+            ))} */}
+            {['Cerveza Clara', 'Cerveza Obscura'].map(beerName => (
+              <button
+                key={beerName}
+                onClick={() => handleToggleBeer(beerName)}
+                className={`group relative p-6 rounded-3xl border transition-all text-left ${selectedBeers.includes(beerName) ? 'bg-brand-red border-brand-red shadow-xl shadow-brand-red/30' : 'bg-white/5 border-white/5 hover:border-white/20'}`}
+              >
+                <div className="flex flex-col gap-1">
+                  <div className={`text-sm font-black uppercase italic tracking-tighter ${selectedBeers.includes(beerName) ? 'text-white' : 'text-slate-200'}`}>
+                    {beerName}
                   </div>
-                  
-                  {selectedBeers.includes(beer.displayName) && (
-                    <div className="absolute top-4 right-4 text-white">
-                      <CheckCircle size={20} />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
+                  <div className={`text-[9px] font-bold uppercase tracking-widest ${selectedBeers.includes(beerName) ? 'text-white/60' : 'text-slate-500'}`}>
+                    SABOR DISPONIBLE
+                  </div>
+                </div>
+                {selectedBeers.includes(beerName) && (
+                  <div className="absolute top-4 right-4 text-white">
+                    <CheckCircle size={20} />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </motion.div>
 
         {/* Categories Loop */}
         <div className="space-y-12 mb-20">
